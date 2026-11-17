@@ -202,7 +202,7 @@ impl Engine {
                                 cur[idx - 1] = Some(Line {
                                     mate: t[sc + 1] == "mate",
                                     score: t[sc + 2].parse().unwrap_or(0),
-                                    pv: t[pv + 1..].iter().take(3).map(|s| s.to_string()).collect(),
+                                    pv: t[pv + 1..].iter().take(6).map(|s| s.to_string()).collect(),
                                 });
                             }
                             best = cur.into_iter().flatten().collect();
@@ -224,7 +224,7 @@ impl Engine {
                                             let t: Vec<&str> = l.split_whitespace().collect();
                                             let get = |k: &str| t.iter().position(|x| *x == k);
                                             let (Some(sc), Some(pv)) = (get("score"), get("pv")) else { continue };
-                                            cur = Some((t[sc + 1] == "mate", t[sc + 2].parse::<i32>().unwrap_or(0), t[pv + 1..].iter().take(2).map(|s| s.to_string()).collect::<Vec<_>>()));
+                                            cur = Some((t[sc + 1] == "mate", t[sc + 2].parse::<i32>().unwrap_or(0), t[pv + 1..].iter().take(5).map(|s| s.to_string()).collect::<Vec<_>>()));
                                         }
                                         if !done { ok = false; break; }
                                         let Some((mate, v, rest)) = cur else { continue };

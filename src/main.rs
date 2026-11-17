@@ -82,12 +82,13 @@ fn save_engines(list: &[EngineEntry]) {
     let _ = std::fs::write(p, text);
 }
 
-struct Hint { san: String, text: String, line: String, ev: String, white_cp: i32, from: Square, to: Square }
+#[derive(Clone)]
+struct Hint { san: String, text: String, line: String, ev: String, white_cp: i32, role: Role, color: Color, from: Square, to: Square }
 
 /// Who played a loaded game (from PGN headers or chess.com).
 struct GameInfo { white: String, black: String, white_elo: Option<u32>, black_elo: Option<u32>, result: String, cc_acc: Option<(f64, f64)> }
 
-struct Import { grid: vision::Grid, sils: vision::Sils, white_top: bool, white_to_move: bool }
+struct Import { grid: vision::Grid, sils: vision::Sils, white_top: bool, white_to_move: bool, edit: bool } // edit: opened by the board editor, not from a screenshot
 
 /// Turns shakmaty's English position error into something readable.
 fn pos_error(e: &str) -> String {
@@ -153,7 +154,13 @@ struct App {
     last: Option<(Square, Square)>,
     elo: u32,
     hints_on: bool,
-    tab: u8,                   // 0 Jogar, 1 Análise, 2 Print
+    tab: u8,                   // 0 Principal, 1 Importar, 2 Análise (opened from Principal)
+    expanded: [bool; 3],       // which suggestion lines show their explanation
+    show_settings: bool,
+    show_picture: bool,
+    fen_text: String,
+    fen_editing: bool,
+    shot_requested: bool,      // dev only: GAMBITO_SHOT
     eval_cp: i32,              // last known evaluation, centipawns from white's side (eval bar)
     eval_mate: bool,
     hint_elo: u32,             // strength of the suggestions (drives analysis depth)
@@ -227,7 +234,7 @@ impl App {
         let mut app = App {
             pos: Chess::default(), hist: vec![], mvs: vec![], quality: vec![], view: None, review: None, reviewing: false,
             reviewer: Engine::new(&exe, tx.clone(), ctx.clone()), book: book::Book::new(), me: Color::White, flipped: false, sel: None, drag: None, last: None,
-            elo: 1500, hints_on: true, hint_elo: 2200, tab: 0, eval_cp: 0, eval_mate: false, both: false, hints: vec![], waiting_hint: false, thinking: false, msg: String::new(),
+            elo: 1500, hints_on: true, hint_elo: 2200, tab: 0, expanded: [true, false, false], show_settings: false, show_picture: false, fen_text: String::new(), fen_editing: false, shot_requested: false, eval_cp: 0, eval_mate: false, both: false, hints: vec![], waiting_hint: false, thinking: false, msg: String::new(),
             player: Engine::new(&exe, tx.clone(), ctx.clone()),
             analyst: Engine::new(&exe, tx.clone(), ctx.clone()),
             tx, ctx, engines, opp: 0, ana: 0, time: 0.0, anim: None, badge_t: (usize::MAX, 0.0), hints_t0: 0.0, skip_anim: false,
@@ -235,6 +242,9 @@ impl App {
             cc_games: vec![], cc_archives: vec![], cc_loaded: 0, cc_busy: false, cc_err: String::new(), net_tx, net_rx, marks: vec![], mark_from: None,
         };
         app.after_move();
+        // dev hooks for checking the look without touching the screen: GAMBITO_PGN=<file> GAMBITO_TAB=<0|1|2> GAMBITO_SHOT=<png>
+        if let Some(t) = std::env::var_os("GAMBITO_PGN").and_then(|p| std::fs::read_to_string(p).ok()) { app.try_pgn(&t); }
+        if let Ok(t) = std::env::var("GAMBITO_TAB") { app.tab = t.parse().unwrap_or(0); }
         app
     }
 
@@ -556,7 +566,7 @@ impl App {
                         let cp = cp_of(l);
                         let white_cp = if stm == Color::White { cp } else { -cp };
                         let ev = if l.mate { format!("{}#{}", if white_cp >= 0 { "+" } else { "-" }, l.score.abs()) } else { format!("{:+.1}", white_cp as f32 / 100.0) };
-                        Some(Hint { san, text, line: sans.join(" "), ev, white_cp, from: first.from()?, to: dest(&first) })
+                        Some(Hint { san, text, line: numbered(&shown, &sans), ev, white_cp, role: first.role(), color: stm, from: first.from()?, to: dest(&first) })
                     }).collect();
                     if let Some(h) = self.hints.first() { self.eval_cp = h.white_cp; self.eval_mate = h.ev.contains('#'); }
                     self.hints_t0 = self.time;
@@ -592,7 +602,7 @@ impl App {
                         for (i, row) in r.rows.iter().enumerate() { self.quality[i] = Some((row.class, row.best_san.clone())); }
                         self.review = Some(r);
                         self.reviewing = false;
-                        if self.loaded.is_some() { self.msg = "Avaliação concluída. Vê o separador Análise.".into(); }
+                        if self.loaded.is_some() { self.msg = "Avaliação concluída. Carrega em \"Análise da partida\".".into(); }
                     }
                 }
                 _ => {}
@@ -605,7 +615,7 @@ impl App {
         match vision::read_board(&img, &self.tpl) {
             Ok(scan) => {
                 let white_top = vision::white_on_top(&scan.grid);
-                self.import = Some(Import { grid: scan.grid, sils: scan.sils, white_top, white_to_move: !white_top });
+                self.import = Some(Import { grid: scan.grid, sils: scan.sils, white_top, white_to_move: !white_top, edit: false });
                 self.brush = None;
                 self.apply_import("Posição lida do print. Se houver peças mal lidas, corrige-as com o editor.");
             }
@@ -849,6 +859,7 @@ impl App {
 impl eframe::App for App {
     fn logic(&mut self, ctx: &egui::Context, _f: &mut eframe::Frame) {
         self.time = ctx.input(|i| i.time);
+        self.dev_screenshot(ctx);
         self.poll_engines();
         // shortcuts: F = flip, Ctrl+V = paste screenshot, dropped file = import
         let (flip, paste, dropped) = ctx.input(|i| (
@@ -872,8 +883,23 @@ impl eframe::App for App {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _f: &mut eframe::Frame) {
-        egui::Panel::right("side").exact_size(390.0).frame(egui::Frame::new().fill(PANEL)).show(ui, |ui| self.side_panel(ui));
-        egui::CentralPanel::default().frame(egui::Frame::new().fill(BG).inner_margin(14.0)).show(ui, |ui| self.center(ui));
+        // far-right menu, then the section's panel, then the board
+        // three columns laid out by hand: board | section panel | menu (egui's stacked side panels misplaced the middle one)
+        let full = ui.max_rect();
+        let rail_w = 84.0;
+        let side_w = (full.width() * 0.34).clamp(340.0, 420.0); // narrower on small windows
+        let rail_rect = Rect::from_min_max(Pos2::new(full.right() - rail_w, full.top()), full.max);
+        let side_rect = Rect::from_min_max(Pos2::new(rail_rect.left() - side_w, full.top()), Pos2::new(rail_rect.left(), full.bottom()));
+        let mid_rect = Rect::from_min_max(full.min, Pos2::new(side_rect.left(), full.bottom()));
+        let p = ui.painter().clone();
+        p.rect_filled(mid_rect, 0.0, BG);
+        p.rect_filled(side_rect, 0.0, PANEL);
+        p.rect_filled(rail_rect, 0.0, RAIL);
+        let inside = |r: Rect| egui::UiBuilder::new().max_rect(r);
+        ui.scope_builder(inside(mid_rect.shrink(14.0)), |ui| { ui.set_clip_rect(mid_rect); self.center(ui) });
+        ui.scope_builder(inside(rail_rect.shrink2(Vec2::new(10.0, 14.0))), |ui| self.rail(ui));
+        self.side_panel(ui, side_rect);
+        self.settings_window(ui.ctx());
         // keep repainting only while something is animating
         let t = self.time;
         if self.anim.map_or(false, |a| t - a.t0 < ANIM_SECS + 0.05) || t - self.badge_t.1 < 0.35 || t - self.hints_t0 < 0.35 {
@@ -882,22 +908,25 @@ impl eframe::App for App {
     }
 }
 
-// ---------- chess.com-style layout ----------
-const BG: Color32 = Color32::from_rgb(48, 46, 43);
-const PANEL: Color32 = Color32::from_rgb(38, 36, 33);
-const CARD: Color32 = Color32::from_rgb(49, 46, 43);
-const ROW_ALT: Color32 = Color32::from_rgb(43, 41, 38);
-const GREEN: Color32 = Color32::from_rgb(129, 182, 76);
-const TXT2: Color32 = Color32::from_rgb(190, 189, 187);
+// ---------- look: dark panel, amber accent, chunky buttons ----------
+const BG: Color32 = Color32::from_rgb(34, 34, 34);
+const RAIL: Color32 = Color32::from_rgb(14, 14, 14);
+const PANEL: Color32 = Color32::from_rgb(20, 20, 20);
+const CARD: Color32 = Color32::from_rgb(31, 31, 31);
+const ROW_ALT: Color32 = Color32::from_rgb(26, 26, 26);
+const ACCENT: Color32 = Color32::from_rgb(245, 184, 46);
+const ACCENT_DARK: Color32 = Color32::from_rgb(168, 118, 8);
+const GREEN: Color32 = Color32::from_rgb(98, 153, 36);
+const TXT2: Color32 = Color32::from_rgb(170, 170, 170);
 const AMBER: Color32 = Color32::from_rgb(230, 190, 90);
 
 /// Rounded dark card that fills the panel width.
 fn card(ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui)) {
-    egui::Frame::new().fill(CARD).corner_radius(8.0).inner_margin(12.0).show(ui, |ui| {
+    egui::Frame::new().fill(CARD).corner_radius(12.0).inner_margin(14.0).show(ui, |ui| {
         ui.set_width(ui.available_width());
         add(ui);
     });
-    ui.add_space(8.0);
+    ui.add_space(10.0);
 }
 
 fn piece_img(tex: &egui::TextureHandle, size: f32) -> egui::Image<'static> {
@@ -905,11 +934,94 @@ fn piece_img(tex: &egui::TextureHandle, size: f32) -> egui::Image<'static> {
 }
 
 /// Evaluation pill like chess.com's: white background when white is better, dark when black is.
-fn eval_pill(ui: &mut egui::Ui, text: &str, white_better: bool) {
-    let (bg, fg) = if white_better { (Color32::WHITE, Color32::from_rgb(30, 30, 30)) } else { (Color32::from_rgb(70, 67, 64), Color32::WHITE) };
-    egui::Frame::new().fill(bg).corner_radius(4.0).inner_margin(egui::Margin::symmetric(6, 2)).show(ui, |ui| {
-        ui.label(egui::RichText::new(text).color(fg).strong().size(13.0));
+fn eval_pill(ui: &mut egui::Ui, text: &str, white_better: bool, size: f32) {
+    let (bg, fg) = if white_better { (Color32::WHITE, Color32::from_rgb(25, 25, 25)) } else { (Color32::from_rgb(70, 67, 64), Color32::WHITE) };
+    egui::Frame::new().fill(bg).corner_radius(6.0).inner_margin(egui::Margin::symmetric((size * 0.45) as i8, (size * 0.12) as i8)).show(ui, |ui| {
+        ui.label(egui::RichText::new(text).color(fg).strong().size(size));
     });
+}
+
+/// Chunky button: a raised face over a darker "shadow", that sinks when pressed.
+fn chunky(ui: &mut egui::Ui, text: &str, primary: bool, size: Vec2) -> bool {
+    let (rect, resp) = ui.allocate_exact_size(size, Sense::click());
+    chunky_paint(ui.painter(), rect, &resp, primary);
+    let fg = if primary { Color32::from_rgb(30, 22, 0) } else { Color32::WHITE };
+    let lift = if resp.is_pointer_button_down_on() { 1.0 } else { 4.0 };
+    ui.painter().text(Pos2::new(rect.center().x, rect.center().y + 2.0 - lift / 2.0), egui::Align2::CENTER_CENTER, text, egui::FontId::proportional(16.0), fg);
+    resp.clicked()
+}
+
+fn chunky_paint(p: &egui::Painter, rect: Rect, resp: &egui::Response, primary: bool) {
+    let (face, shade) = if primary { (ACCENT, ACCENT_DARK) } else { (Color32::from_rgb(30, 30, 30), Color32::from_rgb(6, 6, 6)) };
+    let face = if resp.hovered() { face.lerp_to_gamma(Color32::WHITE, 0.10) } else { face };
+    let lift = if resp.is_pointer_button_down_on() { 1.0 } else { 4.0 };
+    p.rect_filled(Rect::from_min_max(rect.min + Vec2::new(0.0, 4.0), rect.max), 10.0, shade);
+    let top = Rect::from_min_size(rect.min + Vec2::new(0.0, 4.0 - lift), Vec2::new(rect.width(), rect.height() - 4.0));
+    p.rect_filled(top, 10.0, face);
+    if !primary { p.rect_stroke(top, 10.0, Stroke::new(1.5, ACCENT), egui::StrokeKind::Inside); }
+}
+
+/// Square chunky button with a drawn icon: 0 flip board, 1 restart, 2 settings.
+fn icon_button(ui: &mut egui::Ui, kind: u8) -> bool {
+    let (rect, resp) = ui.allocate_exact_size(Vec2::splat(50.0), Sense::click());
+    chunky_paint(ui.painter(), rect, &resp, false);
+    let lift = if resp.is_pointer_button_down_on() { 1.0 } else { 4.0 };
+    let c = Pos2::new(rect.center().x, rect.center().y + 2.0 - lift / 2.0);
+    let p = ui.painter();
+    let tri = |a: Pos2, b: Pos2, d: Pos2| { p.add(egui::Shape::convex_polygon(vec![a, b, d], Color32::WHITE, Stroke::NONE)); };
+    match kind {
+        0 => {
+            tri(c + Vec2::new(0.0, -13.0), c + Vec2::new(-9.0, -2.0), c + Vec2::new(9.0, -2.0));
+            tri(c + Vec2::new(0.0, 13.0), c + Vec2::new(-9.0, 2.0), c + Vec2::new(9.0, 2.0));
+        }
+        1 => {
+            let pts: Vec<Pos2> = (0..=16).map(|k| { let a = 0.6 + k as f32 * 0.3; c + Vec2::new(a.cos(), a.sin()) * 11.0 }).collect();
+            let end = *pts.last().unwrap();
+            p.add(egui::Shape::line(pts, Stroke::new(3.2, Color32::WHITE)));
+            tri(end + Vec2::new(-1.0, -8.0), end + Vec2::new(-1.0, 6.0), end + Vec2::new(9.0, -1.0));
+        }
+        _ => {
+            for (dy, dx) in [(-9.0, -4.0), (0.0, 5.0), (9.0, -2.0)] {
+                p.line_segment([c + Vec2::new(-13.0, dy), c + Vec2::new(13.0, dy)], Stroke::new(2.6, Color32::WHITE));
+                p.circle_filled(c + Vec2::new(dx, dy), 3.8, ACCENT);
+            }
+        }
+    }
+    resp.clicked()
+}
+
+/// Entry of the far-right menu.
+fn rail_button(ui: &mut egui::Ui, kind: u8, label: &str, selected: bool, knight: &egui::TextureHandle) -> bool {
+    let (rect, resp) = ui.allocate_exact_size(Vec2::new(68.0, 80.0), Sense::click());
+    let p = ui.painter();
+    if selected || resp.hovered() { p.rect_filled(rect, 14.0, if selected { CARD } else { Color32::from_rgb(24, 24, 24) }); }
+    if selected { p.rect_stroke(rect, 14.0, Stroke::new(1.6, ACCENT), egui::StrokeKind::Inside); }
+    let c = Pos2::new(rect.center().x, rect.top() + 31.0);
+    if kind == 0 {
+        p.image(knight.id(), Rect::from_center_size(c, Vec2::splat(40.0)), Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
+    } else {
+        // download arrow
+        p.line_segment([c + Vec2::new(0.0, -14.0), c + Vec2::new(0.0, 3.0)], Stroke::new(5.0, Color32::WHITE));
+        p.add(egui::Shape::convex_polygon(vec![c + Vec2::new(-11.0, 0.0), c + Vec2::new(11.0, 0.0), c + Vec2::new(0.0, 13.0)], Color32::WHITE, Stroke::NONE));
+        p.rect_filled(Rect::from_min_max(c + Vec2::new(-14.0, 14.0), c + Vec2::new(14.0, 17.5)), 1.5, ACCENT);
+    }
+    p.text(Pos2::new(rect.center().x, rect.bottom() - 11.0), egui::Align2::CENTER_CENTER, label, egui::FontId::proportional(12.5), if selected { Color32::WHITE } else { TXT2 });
+    resp.clicked()
+}
+
+/// "1. d4 d5 2. c4 e6" (or "1... d5 2. c4" when black is to move)
+fn numbered(shown: &Chess, sans: &[String]) -> String {
+    let mut n = shown.fullmoves().get();
+    let mut white = shown.turn() == Color::White;
+    let mut out: Vec<String> = vec![];
+    for (i, s) in sans.iter().enumerate() {
+        if white { out.push(format!("{n}. {s}")); } else {
+            out.push(if i == 0 { format!("{n}... {s}") } else { s.clone() });
+            n += 1;
+        }
+        white = !white;
+    }
+    out.join(" ")
 }
 
 impl App {
@@ -922,21 +1034,51 @@ impl App {
         if c == self.me { "Tu".into() } else { format!("{}  ({})", self.engines[self.opp].name, self.elo) }
     }
 
-    /// Board with the evaluation bar on its left and a player bar above and below, like chess.com.
+    /// Dev only: with GAMBITO_SHOT=<png>, saves a picture of this window after a few seconds and quits.
+    fn dev_screenshot(&mut self, ctx: &egui::Context) {
+        let Some(path) = std::env::var_os("GAMBITO_SHOT") else { return };
+        ctx.request_repaint_after(std::time::Duration::from_millis(400));
+        if self.time > 9.0 && !self.shot_requested {
+            self.shot_requested = true;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(egui::ScreenshotCallback::new(move |img| {
+                let bytes: Vec<u8> = img.pixels.iter().flat_map(|c| c.to_array()).collect();
+                if let Some(im) = image::RgbaImage::from_raw(img.size[0] as u32, img.size[1] as u32, bytes) { let _ = im.save(&path); }
+                std::process::exit(0);
+            })));
+        }
+    }
+
+    fn finished(&self) -> bool { self.pos.is_game_over() || self.loaded.is_some() }
+
+    /// Board with the evaluation bar on its left, buttons on its right, player bars above and below, arrows under it.
     fn center(&mut self, ui: &mut egui::Ui) {
-        let (bar_h, eval_w, gap) = (38.0, 26.0, 8.0);
+        let (bar_h, eval_w, strip_w, gap, nav_h) = (38.0, 26.0, 52.0, 10.0, 52.0);
         let avail = ui.available_size();
-        let side = (avail.x - eval_w - gap).min(avail.y - 2.0 * bar_h - 16.0).max(200.0);
+        let side = (avail.x - eval_w - strip_w - 2.0 * gap).min(avail.y - 2.0 * bar_h - nav_h - 30.0).max(200.0);
         let (top, bottom) = if self.flipped { (Color::White, Color::Black) } else { (Color::Black, Color::White) };
         let shown = self.pos_at(self.view.unwrap_or(self.hist.len())).clone();
         ui.spacing_mut().item_spacing = Vec2::new(gap, 6.0);
         ui.vertical(|ui| {
             self.player_bar(ui, top, &shown, side + eval_w + gap, bar_h);
-            ui.horizontal(|ui| {
+            ui.horizontal_top(|ui| {
                 self.eval_bar(ui, eval_w, side);
                 self.board_ui(ui, side);
+                ui.vertical(|ui| {
+                    ui.spacing_mut().item_spacing.y = 10.0;
+                    if icon_button(ui, 0) { self.flipped = !self.flipped; }
+                    if icon_button(ui, 1) { let me = if self.both { Color::White } else { self.me }; self.new_game(me); }
+                    if icon_button(ui, 2) { self.show_settings = !self.show_settings; }
+                });
             });
             self.player_bar(ui, bottom, &shown, side + eval_w + gap, bar_h);
+            // back / forward through the game, like the arrows under the board in the reference
+            ui.horizontal(|ui| {
+                ui.add_space(eval_w + gap);
+                let cur = self.view.unwrap_or(self.hist.len());
+                let half = Vec2::new((side - gap) / 2.0, 46.0);
+                if chunky(ui, "<", false, half) { self.goto(cur.saturating_sub(1)); }
+                if chunky(ui, ">", false, half) { self.goto(cur + 1); }
+            });
         });
     }
 
@@ -973,141 +1115,394 @@ impl App {
         p.text(at, egui::Align2::CENTER_CENTER, label, egui::FontId::proportional(10.5), col);
     }
 
-    fn side_panel(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(10.0);
-        ui.horizontal(|ui| {
-            ui.add_space(12.0);
-            ui.add(piece_img(&self.tex[&(Color::White, Role::Knight)], 30.0));
-            ui.label(egui::RichText::new("Gambito").size(22.0).strong());
-        });
-        ui.add_space(6.0);
-        ui.horizontal(|ui| {
-            ui.add_space(8.0);
-            ui.spacing_mut().item_spacing.x = 4.0;
-            for (i, t) in ["Jogar", "Análise", "Importar"].iter().enumerate() {
-                let sel = self.tab == i as u8;
-                let b = egui::Button::new(egui::RichText::new(*t).strong().size(15.0).color(if sel { Color32::WHITE } else { TXT2 }))
-                    .fill(if sel { CARD } else { Color32::TRANSPARENT }).min_size(Vec2::new(112.0, 34.0));
-                if ui.add(b).clicked() { self.tab = i as u8; }
-            }
-        });
-        ui.add_space(6.0);
-        egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-            egui::Frame::new().inner_margin(egui::Margin::symmetric(10, 0)).show(ui, |ui| {
-                match self.tab { 0 => self.tab_play(ui), 1 => self.tab_analysis(ui), _ => self.tab_import(ui) }
-            });
+    /// The far-right menu: Principal (play) and Importar. Análise opens from the play screen.
+    fn rail(&mut self, ui: &mut egui::Ui) {
+        ui.vertical_centered(|ui| {
+            ui.spacing_mut().item_spacing.y = 12.0;
+            if rail_button(ui, 0, "Principal", self.tab != 1, &self.tex[&(Color::White, Role::Knight)]) { self.tab = 0; }
+            if rail_button(ui, 1, "Importar", self.tab == 1, &self.tex[&(Color::White, Role::Knight)]) { self.tab = 1; }
         });
     }
 
-    fn tab_play(&mut self, ui: &mut egui::Ui) {
-        let idx = self.view.unwrap_or(self.hist.len());
-        // status + opening
-        card(ui, |ui| {
-            ui.label(egui::RichText::new(self.status()).size(18.0).strong());
-            if !self.msg.is_empty() { ui.label(egui::RichText::new(&self.msg).color(AMBER)); }
-            if let Some(i) = &self.loaded {
-                ui.label(egui::RichText::new(format!("{} vs {}", i.white, i.black)).strong());
-                if !i.result.is_empty() { ui.label(egui::RichText::new(&i.result).small().color(TXT2)); }
-            }
-            if self.view.is_some() {
-                ui.label(egui::RichText::new(format!("A ver o lance {idx} de {}  (End = voltar ao jogo)", self.hist.len())).color(Color32::from_rgb(130, 180, 240)));
-            }
-            if let Some((eco, name)) = self.opening(idx).cloned() {
-                ui.add_space(2.0);
-                ui.label(egui::RichText::new(format!("{eco}  {name}")).color(Color32::from_rgb(220, 200, 140)));
-            }
-            if let Some(Some((c, best))) = self.quality.get(idx.wrapping_sub(1)) {
-                let mut t = format!("{}: {}", self.hist[idx - 1].1, c.label());
-                if let Some(b) = best { t += &format!("  (melhor era {b})"); }
-                ui.horizontal(|ui| {
-                    let (r, _) = ui.allocate_exact_size(Vec2::splat(20.0), Sense::hover());
-                    draw_icon(ui.painter(), r.center(), 9.5, *c);
-                    ui.label(egui::RichText::new(t).strong().color(c.color()));
-                });
-            }
-            let conts = self.book.continuations(&book::key(self.pos_at(idx)));
-            if !conts.is_empty() {
-                egui::CollapsingHeader::new("Teoria: continuações").default_open(false).show(ui, |ui| {
-                    for (san, name) in conts.iter().take(8) { ui.label(egui::RichText::new(format!("{san}  →  {name}")).small()); }
-                });
-            }
+    fn side_panel(&mut self, ui: &mut egui::Ui, rect: Rect) {
+        let inner = rect.shrink2(Vec2::new(14.0, 12.0));
+        let pinned_h = if self.tab == 0 { 156.0 } else { 0.0 }; // tip, editor/picture buttons and FEN stay at the bottom
+        let scroll_rect = Rect::from_min_max(inner.min, Pos2::new(inner.right(), inner.bottom() - pinned_h));
+        ui.scope_builder(egui::UiBuilder::new().max_rect(scroll_rect), |ui| {
+            ui.set_clip_rect(scroll_rect);
+            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+                match self.tab { 0 => self.view_main(ui), 1 => self.view_import(ui), _ => self.view_analysis(ui) }
+            });
         });
+        if self.tab == 0 {
+            let pinned = Rect::from_min_max(Pos2::new(inner.left(), inner.bottom() - pinned_h), inner.max);
+            ui.scope_builder(egui::UiBuilder::new().max_rect(pinned), |ui| self.pinned_bottom(ui));
+        }
+    }
 
-        // best moves, with the reason
-        if self.hints_on {
+    /// What the last move did, in a speech bubble (like the coach in the reference).
+    fn coach_text(&self, idx: usize) -> String {
+        if idx > 0 {
+            let (prev, mv) = (self.pos_at(idx - 1), &self.mvs[idx - 1]);
+            let (san, why, _) = explain(prev, mv);
+            let tag = match self.quality.get(idx - 1).and_then(|x| x.as_ref()) {
+                Some((c, Some(best))) => format!(" ({}; melhor era {best})", c.label()),
+                Some((c, None)) => format!(" ({})", c.label()),
+                None => String::new(),
+            };
+            return format!("{san}{tag}: {why}");
+        }
+        if self.loaded.is_some() { "Partida pronta. Usa as setas ← → para a percorrer e vê a Análise.".into() } else { "Joga um lance e eu digo o que ele faz.".into() }
+    }
+
+    fn view_main(&mut self, ui: &mut egui::Ui) {
+        let idx = self.view.unwrap_or(self.hist.len());
+
+        // coach bubble + whose turn / game info
+        let coach = self.coach_text(idx);
+        egui::Frame::new().fill(CARD).corner_radius(14.0).inner_margin(10.0).show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.horizontal_top(|ui| {
+                ui.add(piece_img(&self.tex[&(Color::White, Role::Knight)], 48.0));
+                let w = ui.available_width() - 20.0 - ui.spacing().item_spacing.x; // bubble margins
+                egui::Frame::new().fill(Color32::from_rgb(236, 236, 236)).corner_radius(10.0).inner_margin(10.0).show(ui, |ui| {
+                    ui.set_width(w);
+                    ui.add(egui::Label::new(egui::RichText::new(coach).color(Color32::from_rgb(25, 25, 25)).size(14.5)).wrap());
+                });
+            });
+        });
+        ui.add_space(6.0);
+        ui.label(egui::RichText::new(self.status()).size(16.0).strong());
+        if let Some(i) = &self.loaded {
+            ui.label(egui::RichText::new(format!("{} vs {}", i.white, i.black)).strong());
+            if !i.result.is_empty() { ui.label(egui::RichText::new(&i.result).small().color(TXT2)); }
+        }
+        if !self.msg.is_empty() { ui.label(egui::RichText::new(&self.msg).color(AMBER)); }
+        if self.view.is_some() {
+            ui.label(egui::RichText::new(format!("A ver o lance {idx} de {}  (End = voltar ao fim)", self.hist.len())).small().color(Color32::from_rgb(130, 180, 240)));
+        }
+        ui.add_space(8.0);
+
+        // game finished (or an imported game): go to the analysis
+        if self.finished() && chunky(ui, "Análise da partida", true, Vec2::new(ui.available_width(), 50.0)) { self.tab = 2; }
+        if self.finished() { ui.add_space(10.0); }
+
+        // picture import + board editor
+        if self.show_picture || self.import.is_some() { self.picture_cards(ui); }
+
+        // best move, depth slider and lines
+        self.hints_block(ui);
+
+        // opening
+        if let Some((eco, name)) = self.opening(idx).cloned() {
             card(ui, |ui| {
-                ui.label(egui::RichText::new("Melhores jogadas").strong().size(15.0));
-                if self.waiting_hint && self.hints.is_empty() { ui.label(egui::RichText::new("A analisar…").color(TXT2)); }
-                for (i, h) in self.hints.iter().enumerate() {
-                    ui.add_space(6.0);
-                    ui.horizontal(|ui| {
-                        eval_pill(ui, &h.ev, h.white_cp >= 0);
-                        ui.label(egui::RichText::new(format!("{}. {}", i + 1, h.san)).strong().size(16.0));
+                ui.label(egui::RichText::new("Abertura").strong().size(15.0));
+                ui.label(egui::RichText::new(format!("{eco}  {name}")).color(Color32::from_rgb(220, 200, 140)));
+                let conts = self.book.continuations(&book::key(self.pos_at(idx)));
+                if !conts.is_empty() {
+                    egui::CollapsingHeader::new("Teoria: continuações").default_open(false).show(ui, |ui| {
+                        for (san, name) in conts.iter().take(8) { ui.label(egui::RichText::new(format!("{san}  →  {name}")).small()); }
                     });
-                    ui.label(egui::RichText::new(&h.text).size(13.5));
-                    if !h.line.is_empty() { ui.label(egui::RichText::new(format!("Linha: {}", h.line)).small().color(TXT2)); }
                 }
             });
         }
 
-        // moves, two columns like chess.com + navigation
+        // moves
         card(ui, |ui| {
             ui.label(egui::RichText::new("Lances").strong().size(15.0));
             ui.add_space(4.0);
             let mut jump = None;
-            let cur = idx;
             let rows = self.hist.len().div_ceil(2);
-            egui::ScrollArea::vertical().max_height(190.0).auto_shrink([false, true]).stick_to_bottom(true).show(ui, |ui| {
+            egui::ScrollArea::vertical().id_salt("moves").max_height(180.0).auto_shrink([false, true]).stick_to_bottom(true).show(ui, |ui| {
                 for row in 0..rows {
                     egui::Frame::new().fill(if row % 2 == 1 { ROW_ALT } else { Color32::TRANSPARENT }).show(ui, |ui| {
                         ui.set_width(ui.available_width());
                         ui.horizontal(|ui| {
                             ui.spacing_mut().item_spacing.x = 2.0;
-                            ui.add_sized([30.0, 22.0], egui::Label::new(egui::RichText::new(format!("{}.", row + 1)).color(TXT2)));
+                            ui.add_sized([30.0, 24.0], egui::Label::new(egui::RichText::new(format!("{}.", row + 1)).color(TXT2)));
                             for k in 0..2 {
                                 let i = row * 2 + k;
                                 if i >= self.hist.len() { break; }
                                 let q = self.quality.get(i).and_then(|x| x.as_ref()).map(|x| x.0);
                                 let mut rt = egui::RichText::new(format!("{}{}", self.hist[i].1, q.map_or("", |c| c.sym())));
                                 if let Some(c) = q { rt = rt.color(c.color()); }
-                                if ui.add_sized([120.0, 22.0], egui::Button::new(rt).frame(false).selected(cur == i + 1)).clicked() { jump = Some(i + 1); }
+                                if ui.add_sized([125.0, 24.0], egui::Button::new(rt).frame(false).selected(idx == i + 1)).clicked() { jump = Some(i + 1); }
                             }
                         });
                     });
                 }
                 if self.hist.is_empty() { ui.label(egui::RichText::new("Ainda sem lances.").color(TXT2)); }
             });
-            ui.add_space(6.0);
-            ui.horizontal(|ui| {
-                let n = self.hist.len();
-                ui.spacing_mut().item_spacing.x = 6.0;
-                for (t, target) in [("|<", Some(0)), ("<", Some(cur.saturating_sub(1))), (">", Some(cur + 1)), (">|", Some(usize::MAX))] {
-                    if ui.add_sized([64.0, 30.0], egui::Button::new(egui::RichText::new(t).strong())).clicked() { jump = target; }
-                }
-                let _ = n;
-            });
             if let Some(j) = jump { self.goto(j); }
-        });
-
-        // game controls
-        card(ui, |ui| {
+            ui.add_space(8.0);
+            let w = (ui.available_width() - 20.0) / 3.0;
             ui.horizontal(|ui| {
-                let b = |t: &str| egui::Button::new(egui::RichText::new(t).strong().color(Color32::WHITE)).fill(Color32::from_rgb(98, 153, 36)).min_size(Vec2::new(0.0, 34.0));
-                if ui.add(b("Novo jogo (brancas)")).clicked() { self.new_game(Color::White); }
-                if ui.add(b("Novo jogo (pretas)")).clicked() { self.new_game(Color::Black); }
+                ui.spacing_mut().item_spacing.x = 10.0;
+                if chunky(ui, "Desfazer", false, Vec2::new(w, 44.0)) { self.undo(); }
+                if chunky(ui, "Novo (B)", false, Vec2::new(w, 44.0)) { self.new_game(Color::White); }
+                if chunky(ui, "Novo (P)", false, Vec2::new(w, 44.0)) { self.new_game(Color::Black); }
             });
-            ui.horizontal(|ui| {
-                if ui.add(egui::Button::new("Voltar atrás").min_size(Vec2::new(0.0, 32.0))).clicked() { self.undo(); }
-                if ui.add(egui::Button::new("Virar tabuleiro (F)").min_size(Vec2::new(0.0, 32.0))).clicked() { self.flipped = !self.flipped; }
-            });
+            ui.label(egui::RichText::new("Novo (B) = jogar de brancas · Novo (P) = jogar de pretas").small().color(TXT2));
         });
+    }
 
-        // opponent
+    fn hints_block(&mut self, ui: &mut egui::Ui) {
+        if !self.hints_on {
+            card(ui, |ui| {
+                ui.label(egui::RichText::new("Sugestões desligadas").color(TXT2));
+                if ui.checkbox(&mut self.hints_on, "Mostrar as 3 melhores jogadas").changed() { self.request_hints(); }
+            });
+            return;
+        }
+        // the best move, big
+        if let Some(h) = self.hints.first().cloned() {
+            egui::Frame::new().fill(Color32::from_rgb(12, 12, 12)).stroke(Stroke::new(1.6, ACCENT)).corner_radius(14.0)
+                .inner_margin(egui::Margin::symmetric(14, 12)).show(ui, |ui| {
+                    ui.set_width(ui.available_width());
+                    ui.vertical_centered(|ui| {
+                        egui::Frame::new().fill(ACCENT).corner_radius(6.0).inner_margin(egui::Margin::symmetric(8, 2)).show(ui, |ui| {
+                            ui.label(egui::RichText::new("MELHOR JOGADA").size(11.0).strong().color(Color32::from_rgb(30, 22, 0)));
+                        });
+                    });
+                    ui.add_space(4.0);
+                    ui.horizontal(|ui| {
+                        ui.add(piece_img(&self.tex[&(h.color, h.role)], 36.0));
+                        ui.label(egui::RichText::new(&h.san).size(34.0).strong());
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| eval_pill(ui, &h.ev, h.white_cp >= 0, 24.0));
+                    });
+                });
+        } else {
+            card(ui, |ui| { ui.label(egui::RichText::new(if self.waiting_hint { "A analisar…" } else { "Sem sugestões para esta posição." }).color(TXT2)); });
+        }
+        ui.add_space(8.0);
+
+        // how strong the suggestions are
+        ui.horizontal(|ui| {
+            ui.label(egui::RichText::new("Elo das sugestões").color(TXT2));
+            ui.label(egui::RichText::new(format!("(profundidade {})", self.hint_depth())).small().color(TXT2));
+        });
+        ui.spacing_mut().slider_width = ui.available_width() - 70.0;
+        if ui.add(egui::Slider::new(&mut self.hint_elo, 1000..=2600).step_by(50.0)).changed() { self.request_hints(); }
+        ui.add_space(8.0);
+
+        // the three lines; click a row to open the reason
+        let mut toggle = None;
+        let hints = self.hints.clone();
+        for (i, h) in hints.iter().enumerate() {
+            egui::Frame::new().fill(CARD).corner_radius(12.0).inner_margin(egui::Margin::symmetric(10, 8)).show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                ui.horizontal(|ui| {
+                    let (r, _) = ui.allocate_exact_size(Vec2::splat(24.0), Sense::hover());
+                    ui.painter().circle_filled(r.center(), 12.0, GREEN);
+                    ui.painter().text(r.center(), egui::Align2::CENTER_CENTER, (i + 1).to_string(), egui::FontId::proportional(13.0), Color32::WHITE);
+                    eval_pill(ui, &h.ev, h.white_cp >= 0, 13.0);
+                    let open = self.expanded[i];
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.add(egui::Button::new(egui::RichText::new(if open { "v" } else { ">" }).strong()).frame(false)).clicked() { toggle = Some(i); }
+                        ui.add(egui::Label::new(egui::RichText::new(&h.line).size(13.5)).truncate());
+                    });
+                });
+                if self.expanded[i] {
+                    ui.add_space(4.0);
+                    ui.label(egui::RichText::new(&h.text).size(13.5).color(Color32::from_rgb(215, 215, 215)));
+                }
+            });
+            ui.add_space(6.0);
+        }
+        if let Some(i) = toggle { self.expanded[i] = !self.expanded[i]; }
+        ui.add_space(6.0);
+    }
+
+    /// Bottom of the play screen: tip, board editor / picture import, FEN.
+    fn pinned_bottom(&mut self, ui: &mut egui::Ui) {
+        ui.add_space(6.0);
+        ui.label(egui::RichText::new("Dica: Ctrl+V cola um print de um tabuleiro ou um PGN.").small().color(TXT2));
+        ui.add_space(4.0);
+        let w = (ui.available_width() - 10.0) / 2.0;
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 10.0;
+            let editing = self.import.as_ref().map_or(false, |i| i.edit);
+            if chunky(ui, if editing { "Fechar editor" } else { "Editar tabuleiro" }, false, Vec2::new(w, 46.0)) {
+                if editing { self.import = None; self.brush = None; } else { self.start_edit(); }
+            }
+            if chunky(ui, "Imagem", true, Vec2::new(w, 46.0)) { self.show_picture = !self.show_picture; }
+        });
+        ui.add_space(8.0);
+        // FEN of the position being shown; edit it and press Enter to load another one
+        let cur = fen_of(self.pos_at(self.view.unwrap_or(self.hist.len())));
+        if !self.fen_editing { self.fen_text = cur; }
+        let mut load = false;
+        ui.horizontal(|ui| {
+            let r = ui.add(egui::TextEdit::singleline(&mut self.fen_text).font(egui::TextStyle::Monospace).desired_width(ui.available_width() - 74.0));
+            self.fen_editing = r.has_focus();
+            if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) { load = true; }
+            if ui.button("Copiar").clicked() { ui.ctx().copy_text(self.fen_text.clone()); }
+        });
+        if load { let f = self.fen_text.clone(); self.load_fen(&f); }
+        ui.add_space(6.0);
+    }
+
+    /// Picture import (paste / open) and the board editor palette.
+    fn picture_cards(&mut self, ui: &mut egui::Ui) {
+        if self.show_picture || self.import.as_ref().map_or(false, |i| !i.edit) {
+            card(ui, |ui| {
+                ui.label(egui::RichText::new("Importar imagem").strong().size(15.0));
+                ui.label(egui::RichText::new("Ctrl+V, arrastar a imagem para a janela, ou:").small().color(TXT2));
+                ui.horizontal(|ui| {
+                    if ui.button("Colar print ou PGN").clicked() { self.paste_any(); }
+                    if ui.button("Abrir imagem…").clicked() {
+                        if let Some(p) = rfd::FileDialog::new().add_filter("imagem", &["png", "jpg", "jpeg", "webp"]).pick_file() { self.open_file(&p); }
+                    }
+                });
+            });
+        }
+        if self.import.is_some() {
+            let mut changed = false;
+            let mut done = false;
+            card(ui, |ui| {
+                ui.label(egui::RichText::new("Corrigir posição").strong().size(15.0));
+                if let Some(i) = &mut self.import {
+                    if !i.edit { changed |= ui.checkbox(&mut i.white_top, "Brancas estão em cima no print").changed(); }
+                    ui.horizontal(|ui| {
+                        ui.label("Vez de:");
+                        changed |= ui.radio_value(&mut i.white_to_move, true, "Brancas").changed();
+                        changed |= ui.radio_value(&mut i.white_to_move, false, "Pretas").changed();
+                    });
+                }
+                ui.label(egui::RichText::new("Escolhe uma peça (ou a borracha) e clica nas casas do tabuleiro.").small().color(TXT2));
+                let mut brush = self.brush;
+                for color in [Color::White, Color::Black] {
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = 3.0;
+                        for role in [Role::King, Role::Queen, Role::Rook, Role::Bishop, Role::Knight, Role::Pawn] {
+                            let pc = shakmaty::Piece { color, role };
+                            let b = egui::Button::image(piece_img(&self.tex[&(color, role)], 32.0)).selected(brush == Some(Some(pc)));
+                            if ui.add(b).clicked() { brush = if brush == Some(Some(pc)) { None } else { Some(Some(pc)) }; }
+                        }
+                    });
+                }
+                ui.horizontal(|ui| {
+                    if ui.add(egui::Button::new("Borracha").selected(brush == Some(None))).clicked() { brush = if brush == Some(None) { None } else { Some(None) }; }
+                    if ui.button("Concluir").clicked() { done = true; }
+                    if self.import.as_ref().map_or(false, |i| !i.edit) && ui.button("Aprender estas peças").on_hover_text("Guarda o aspeto das peças deste print (já corrigido) para ler melhor os próximos.").clicked() { self.learn_import(); }
+                });
+                self.brush = brush;
+            });
+            if changed { self.apply_import("Posição atualizada."); }
+            if done { self.import = None; self.brush = None; self.show_picture = false; }
+        }
+    }
+
+    /// Opens the board editor on the position being shown.
+    fn start_edit(&mut self) {
+        let shown = self.pos_at(self.view.unwrap_or(self.hist.len())).clone();
+        let white_top = self.flipped;
+        let mut grid: vision::Grid = Default::default();
+        for i in 0..64u32 {
+            let sq = Square::new(i);
+            if let Some(p) = shown.board().piece_at(sq) {
+                let (r, c) = vision::grid_index(u32::from(sq.file()) as usize, u32::from(sq.rank()) as usize, white_top);
+                grid[r][c] = Some((p.color, p.role));
+            }
+        }
+        self.import = Some(Import { grid, sils: Default::default(), white_top, white_to_move: shown.turn() == Color::White, edit: true });
+        self.brush = None;
+        self.msg = "Editor aberto: escolhe uma peça e clica nas casas.".into();
+    }
+
+    /// Loads a position from a FEN typed in the FEN box.
+    fn load_fen(&mut self, fen: &str) {
+        match fen.trim().parse::<Fen>().map_err(|e| e.to_string())
+            .and_then(|f| f.into_position::<Chess>(CastlingMode::Standard).map_err(|e| pos_error(&e.to_string())))
+        {
+            Ok(p) => {
+                self.pos = p;
+                self.loaded = None;
+                self.reset_history();
+                self.me = self.pos.turn();
+                self.last = None;
+                self.sel = None;
+                self.msg = "Posição carregada do FEN.".into();
+                self.after_move();
+            }
+            Err(e) => self.msg = format!("FEN inválido: {e}"),
+        }
+    }
+
+    fn view_analysis(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            if chunky(ui, "< Voltar", false, Vec2::new(120.0, 42.0)) { self.tab = 0; }
+            ui.label(egui::RichText::new("Análise da partida").size(20.0).strong());
+        });
+        ui.add_space(10.0);
+        let busy = self.reviewing;
+        if self.review.is_none() {
+            card(ui, |ui| {
+                if busy {
+                    ui.label(egui::RichText::new("A avaliar a partida…").color(TXT2));
+                } else {
+                    ui.label(egui::RichText::new("Ainda não há avaliação desta partida.").color(TXT2));
+                    if !self.mvs.is_empty() && chunky(ui, "Avaliar partida", true, Vec2::new(ui.available_width(), 46.0)) { self.start_review(); }
+                }
+            });
+            return;
+        }
         card(ui, |ui| {
-            ui.label(egui::RichText::new("Adversário").strong().size(15.0));
+            let Some(r) = &self.review else { return };
+            ui.horizontal(|ui| {
+                for (name, acc, bg, fg) in [("Brancas", r.acc[0], Color32::WHITE, Color32::from_rgb(30, 30, 30)), ("Pretas", r.acc[1], Color32::from_rgb(70, 67, 64), Color32::WHITE)] {
+                    egui::Frame::new().fill(bg).corner_radius(10.0).inner_margin(10.0).show(ui, |ui| {
+                        ui.set_width(150.0);
+                        ui.vertical_centered(|ui| {
+                            ui.label(egui::RichText::new(format!("{acc:.0}%")).size(28.0).strong().color(fg));
+                            ui.label(egui::RichText::new(format!("Precisão · {name}")).small().color(fg));
+                        });
+                    });
+                }
+            });
+            if let Some((w, b)) = self.loaded.as_ref().and_then(|i| i.cc_acc) {
+                ui.add_space(4.0);
+                ui.label(egui::RichText::new(format!("Precisão no chess.com: brancas {w:.1}% · pretas {b:.1}%")).small().color(TXT2));
+            }
+            ui.add_space(8.0);
+            for c in CLASSES.into_iter().filter(|c| r.counts[0][*c as usize] + r.counts[1][*c as usize] > 0) {
+                ui.horizontal(|ui| {
+                    let (rc, _) = ui.allocate_exact_size(Vec2::splat(22.0), Sense::hover());
+                    draw_icon(ui.painter(), rc.center(), 10.0, c);
+                    ui.add_sized([140.0, 22.0], egui::Label::new(egui::RichText::new(c.label()).color(c.color())));
+                    ui.add_sized([60.0, 22.0], egui::Label::new(r.counts[0][c as usize].to_string()));
+                    ui.add_sized([60.0, 22.0], egui::Label::new(r.counts[1][c as usize].to_string()));
+                });
+            }
+        });
+        // the weak moves, to jump to
+        let mut jump = None;
+        if let Some(r) = &self.review {
+            card(ui, |ui| {
+                ui.label(egui::RichText::new("Lances a rever").strong().size(15.0));
+                let mut any = false;
+                for (i, row) in r.rows.iter().enumerate().filter(|(_, w)| w.class >= Class::Inaccuracy) {
+                    any = true;
+                    let mut t = format!("{}{} {}{}", i / 2 + 1, if row.color == Color::White { "." } else { "..." }, row.san, row.class.sym());
+                    if let Some(b) = &row.best_san { t += &format!("   melhor: {b}"); }
+                    if ui.add(egui::Button::new(egui::RichText::new(t).color(row.class.color())).frame(false)).clicked() { jump = Some(i + 1); }
+                }
+                if !any { ui.label(egui::RichText::new("Sem imprecisões nem erros. Boa partida!").color(TXT2)); }
+            });
+        }
+        if let Some(j) = jump { self.goto(j); self.tab = 0; }
+    }
+
+    /// Engine and suggestion settings (the gear next to the board).
+    fn settings_window(&mut self, ctx: &egui::Context) {
+        if !self.show_settings { return; }
+        let mut open = true;
+        egui::Window::new("Definições").open(&mut open).resizable(false).collapsible(false).show(ctx, |ui| {
+            ui.set_width(300.0);
             let names: Vec<String> = self.engines.iter().map(|e| e.name.clone()).collect();
+            ui.label(egui::RichText::new("Adversário").strong());
             let mut new_opp = self.opp;
-            egui::ComboBox::from_id_salt("opp").width(220.0).selected_text(names[self.opp].as_str()).show_ui(ui, |ui| {
+            egui::ComboBox::from_id_salt("opp").width(240.0).selected_text(names[self.opp].as_str()).show_ui(ui, |ui| {
                 for (i, n) in names.iter().enumerate() { ui.selectable_value(&mut new_opp, i, n.as_str()); }
             });
             ui.add_enabled_ui(!self.both, |ui| {
@@ -1115,6 +1510,14 @@ impl App {
                 ui.add(egui::Slider::new(&mut self.elo, 1000..=2600).step_by(50.0).show_value(false));
             });
             if ui.checkbox(&mut self.both, "Jogar os dois lados (sem engine)").changed() { self.thinking = false; self.after_move(); }
+            ui.separator();
+            ui.label(egui::RichText::new("Sugestões").strong());
+            if ui.checkbox(&mut self.hints_on, "Mostrar as 3 melhores jogadas").changed() { self.request_hints(); }
+            let mut new_ana = self.ana;
+            egui::ComboBox::from_id_salt("ana").width(240.0).selected_text(names[self.ana].as_str()).show_ui(ui, |ui| {
+                for (i, n) in names.iter().enumerate() { ui.selectable_value(&mut new_ana, i, n.as_str()); }
+            });
+            ui.separator();
             if ui.button("Adicionar engine UCI…").clicked() {
                 if let Some(p) = rfd::FileDialog::new().add_filter("engine", &["exe"]).pick_file() { self.add_engine(p); }
             }
@@ -1124,20 +1527,6 @@ impl App {
                 self.msg.clear();
                 if self.thinking { self.after_move(); }
             }
-        });
-    }
-
-    fn tab_analysis(&mut self, ui: &mut egui::Ui) {
-        card(ui, |ui| {
-            ui.label(egui::RichText::new("Sugestões").strong().size(15.0));
-            if ui.checkbox(&mut self.hints_on, "Mostrar as 3 melhores jogadas").changed() { self.request_hints(); }
-            let names: Vec<String> = self.engines.iter().map(|e| e.name.clone()).collect();
-            let mut new_ana = self.ana;
-            egui::ComboBox::from_id_salt("ana").width(220.0).selected_text(names[self.ana].as_str()).show_ui(ui, |ui| {
-                for (i, n) in names.iter().enumerate() { ui.selectable_value(&mut new_ana, i, n.as_str()); }
-            });
-            ui.label(format!("Elo das sugestões: {}   (profundidade {})", self.hint_elo, self.hint_depth()));
-            if ui.add(egui::Slider::new(&mut self.hint_elo, 1000..=2600).step_by(50.0).show_value(false)).changed() { self.request_hints(); }
             if new_ana != self.ana {
                 self.ana = new_ana;
                 self.analyst = self.spawn(new_ana);
@@ -1146,62 +1535,19 @@ impl App {
                 self.request_hints();
             }
         });
-
-        card(ui, |ui| {
-            ui.label(egui::RichText::new("Avaliação da partida").strong().size(15.0));
-            let busy = self.reviewing;
-            ui.horizontal(|ui| {
-                if ui.add_enabled(!busy && !self.mvs.is_empty(), egui::Button::new(if busy { "A avaliar…" } else { "Avaliar partida" }).min_size(Vec2::new(0.0, 32.0))).clicked() {
-                    self.review = None;
-                    self.start_review();
-                }
-            });
-            if let Some(r) = &self.review {
-                ui.add_space(6.0);
-                ui.horizontal(|ui| {
-                    for (name, acc, bg, fg) in [("Brancas", r.acc[0], Color32::WHITE, Color32::from_rgb(30, 30, 30)), ("Pretas", r.acc[1], Color32::from_rgb(70, 67, 64), Color32::WHITE)] {
-                        egui::Frame::new().fill(bg).corner_radius(8.0).inner_margin(10.0).show(ui, |ui| {
-                            ui.set_width(150.0);
-                            ui.vertical_centered(|ui| {
-                                ui.label(egui::RichText::new(format!("{acc:.0}%")).size(26.0).strong().color(fg));
-                                ui.label(egui::RichText::new(format!("Precisão · {name}")).small().color(fg));
-                            });
-                        });
-                    }
-                });
-                if let Some((w, b)) = self.loaded.as_ref().and_then(|i| i.cc_acc) {
-                    ui.label(egui::RichText::new(format!("Precisão no chess.com: brancas {w:.1}% · pretas {b:.1}%")).small().color(TXT2));
-                }
-                ui.add_space(8.0);
-                for c in CLASSES.into_iter().filter(|c| r.counts[0][*c as usize] + r.counts[1][*c as usize] > 0) {
-                    ui.horizontal(|ui| {
-                        let (rc, _) = ui.allocate_exact_size(Vec2::splat(20.0), Sense::hover());
-                        draw_icon(ui.painter(), rc.center(), 9.0, c);
-                        ui.add_sized([130.0, 20.0], egui::Label::new(egui::RichText::new(c.label()).color(c.color())));
-                        ui.add_sized([60.0, 20.0], egui::Label::new(r.counts[0][c as usize].to_string()));
-                        ui.add_sized([60.0, 20.0], egui::Label::new(r.counts[1][c as usize].to_string()));
-                    });
-                }
-                ui.add_space(6.0);
-                for (i, row) in r.rows.iter().enumerate().filter(|(_, w)| w.class >= Class::Inaccuracy) {
-                    let mut t = format!("{}{} {}{}", i / 2 + 1, if row.color == Color::White { "." } else { "..." }, row.san, row.class.sym());
-                    if let Some(b) = &row.best_san { t += &format!("   melhor: {b}"); }
-                    ui.label(egui::RichText::new(t).small().color(row.class.color()));
-                }
-            } else if !busy {
-                ui.label(egui::RichText::new("Joga alguns lances e carrega em \"Avaliar partida\". Quando a partida acaba, a avaliação é feita sozinha.").small().color(TXT2));
-            }
-        });
+        self.show_settings = open;
     }
 
-    fn tab_import(&mut self, ui: &mut egui::Ui) {
+    fn view_import(&mut self, ui: &mut egui::Ui) {
+        ui.label(egui::RichText::new("Importar").size(22.0).strong());
+        ui.add_space(8.0);
         if !self.msg.is_empty() {
             card(ui, |ui| { ui.label(egui::RichText::new(&self.msg).color(AMBER)); });
         }
 
         // chess.com games of a user
         card(ui, |ui| {
-            ui.label(egui::RichText::new("Partidas do chess.com").strong().size(15.0));
+            ui.label(egui::RichText::new("Perfil e jogos do chess.com").strong().size(15.0));
             ui.label(egui::RichText::new("Escreve o nome de utilizador. Só aparecem partidas públicas e terminadas.").small().color(TXT2));
             ui.horizontal(|ui| {
                 let te = ui.add(egui::TextEdit::singleline(&mut self.cc_user).hint_text("utilizador").desired_width(200.0));
@@ -1213,19 +1559,22 @@ impl App {
             if !self.cc_err.is_empty() { ui.label(egui::RichText::new(&self.cc_err).color(AMBER)); }
             let user = self.cc_query.clone();
             let mut pick = None;
-            egui::ScrollArea::vertical().id_salt("ccgames").max_height(300.0).auto_shrink([false, true]).show(ui, |ui| {
+            egui::ScrollArea::vertical().id_salt("ccgames").max_height(420.0).auto_shrink([false, true]).show(ui, |ui| {
                 for (i, g) in self.cc_games.iter().enumerate().take(200) {
                     let white = g.white.eq_ignore_ascii_case(&user);
                     let (my_res, opp, opp_elo) = if white { (&g.white_result, &g.black, g.black_elo) } else { (&g.black_result, &g.white, g.white_elo) };
                     let won = my_res == "win";
                     let drew = g.white_result != "win" && g.black_result != "win";
                     let (tag, col) = if won { ("V", GREEN) } else if drew { ("E", TXT2) } else { ("D", Color32::from_rgb(202, 52, 49)) };
-                    ui.horizontal(|ui| {
-                        ui.add_sized([16.0, 20.0], egui::Label::new(egui::RichText::new(tag).strong().color(col)));
-                        let elo = opp_elo.map_or("?".to_string(), |e| e.to_string());
-                        ui.label(format!("{opp} ({elo}) · {} · {}", g.time_class, chesscom::date(g.end_time)));
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if ui.button("Analisar").clicked() { pick = Some(i); }
+                    egui::Frame::new().fill(if i % 2 == 1 { ROW_ALT } else { Color32::TRANSPARENT }).inner_margin(4.0).show(ui, |ui| {
+                        ui.set_width(ui.available_width());
+                        ui.horizontal(|ui| {
+                            ui.add_sized([16.0, 20.0], egui::Label::new(egui::RichText::new(tag).strong().color(col)));
+                            let elo = opp_elo.map_or("?".to_string(), |e| e.to_string());
+                            ui.label(format!("{opp} ({elo}) · {} · {}", g.time_class, chesscom::date(g.end_time)));
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                if ui.button("Analisar").clicked() { pick = Some(i); }
+                            });
                         });
                     });
                 }
@@ -1260,54 +1609,6 @@ impl App {
             }
             if let Some(i) = pick { let g = self.pgn_games[i].clone(); self.load_pgn_game(&g); }
         });
-
-        // position from a screenshot
-        card(ui, |ui| {
-            ui.label(egui::RichText::new("Ler posição de um print").strong().size(15.0));
-            ui.label(egui::RichText::new("Ctrl+V, arrastar a imagem para a janela, ou:").small().color(TXT2));
-            ui.horizontal(|ui| {
-                if ui.button("Colar print ou PGN").clicked() { self.paste_any(); }
-                if ui.button("Abrir imagem…").clicked() {
-                    if let Some(p) = rfd::FileDialog::new().add_filter("imagem", &["png", "jpg", "jpeg", "webp"]).pick_file() { self.open_file(&p); }
-                }
-            });
-            let mut changed = false;
-            if let Some(i) = &mut self.import {
-                ui.add_space(4.0);
-                changed |= ui.checkbox(&mut i.white_top, "Brancas estão em cima no print").changed();
-                ui.horizontal(|ui| {
-                    ui.label("Vez de:");
-                    changed |= ui.radio_value(&mut i.white_to_move, true, "Brancas").changed();
-                    changed |= ui.radio_value(&mut i.white_to_move, false, "Pretas").changed();
-                });
-            }
-            if changed { self.apply_import("Posição atualizada."); }
-        });
-
-        if self.import.is_some() {
-            card(ui, |ui| {
-                ui.label(egui::RichText::new("Corrigir peças").strong().size(15.0));
-                ui.label(egui::RichText::new("Escolhe uma peça (ou a borracha) e clica nas casas do tabuleiro.").small().color(TXT2));
-                let mut brush = self.brush;
-                for color in [Color::White, Color::Black] {
-                    ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing.x = 3.0;
-                        for role in [Role::King, Role::Queen, Role::Rook, Role::Bishop, Role::Knight, Role::Pawn] {
-                            let pc = shakmaty::Piece { color, role };
-                            let b = egui::Button::image(piece_img(&self.tex[&(color, role)], 30.0)).selected(brush == Some(Some(pc)));
-                            if ui.add(b).clicked() { brush = if brush == Some(Some(pc)) { None } else { Some(Some(pc)) }; }
-                        }
-                    });
-                }
-                ui.horizontal(|ui| {
-                    if ui.add(egui::Button::new("Borracha").selected(brush == Some(None))).clicked() { brush = if brush == Some(None) { None } else { Some(None) }; }
-                    if brush.is_some() && ui.button("Terminar edição").clicked() { brush = None; }
-                });
-                self.brush = brush;
-                ui.add_space(6.0);
-                if ui.button("Aprender estas peças").on_hover_text("Guarda o aspeto das peças deste print (já corrigido) para ler melhor os próximos.").clicked() { self.learn_import(); }
-            });
-        }
     }
 
     // ---------- PGN / chess.com games ----------
@@ -1402,7 +1703,7 @@ impl App {
             1 => { self.load_pgn_game(&games[0]); true }
             n => {
                 self.pgn_games = games;
-                self.tab = 2;
+                self.tab = 1;
                 self.msg = format!("O PGN tem {n} partidas: escolhe uma.");
                 true
             }
@@ -1420,10 +1721,17 @@ fn migrate_old_data() {
     }
 }
 
+/// Dev only: GAMBITO_SIZE=1280x800 opens the window at that size.
+fn dev_size() -> Option<[f32; 2]> {
+    let v = std::env::var("GAMBITO_SIZE").ok()?;
+    let (w, h) = v.split_once('x')?;
+    Some([w.parse().ok()?, h.parse().ok()?])
+}
+
 fn main() -> eframe::Result {
     migrate_old_data();
     let opts = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([1060.0, 740.0]).with_title("Gambito"),
+        viewport: egui::ViewportBuilder::default().with_inner_size(dev_size().unwrap_or([1280.0, 820.0])).with_title("Gambito"),
         ..Default::default()
     };
     eframe::run_native("Gambito", opts, Box::new(|cc| Ok(Box::new(App::new(cc)))))

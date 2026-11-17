@@ -19,6 +19,9 @@ utilizador (sem pedir administrador), cria atalhos e aparece em "Apps instaladas
 
 ## O que faz
 
+- **Menu à direita**: **Principal** (jogar, sugestões, lances, importar imagem, editar tabuleiro e FEN) e **Importar**
+  (partidas do chess.com e PGN). Quando a partida termina (ou abres uma importada) aparece o botão **Análise da partida**.
+  A engrenagem junto ao tabuleiro abre as definições (engines, Elo do adversário, jogar os dois lados).
 - **Jogar** contra a engine que escolheres, com o Elo que quiseres (1000–2600), ou jogar os dois lados.
 - **3 melhores jogadas** com setas numeradas, avaliação e uma explicação, por exemplo
   *"O bispo dá xeque e ameaça a dama."* O Elo das sugestões também se ajusta (muda a profundidade da análise).
@@ -84,6 +87,8 @@ publica uma tag `v1.0.0` para gerar também a Release com o instalador.
 - A classificação "brilhante" é uma heurística (lance bom que sacrifica material), não a do chess.com.
 - A busca no chess.com faz pedidos um de cada vez, 2 meses na primeira vez e mais 3 por cada "Mais antigas",
   para respeitar os limites da API. Variantes (Chess960, etc.) são ignoradas.
+- Modo de diagnóstico (para verificar a interface sem tocar no ecrã): `GAMBITO_SHOT=ficheiro.png` guarda uma imagem da própria
+  janela e fecha; `GAMBITO_PGN=ficheiro.pgn`, `GAMBITO_TAB=0|1|2` e `GAMBITO_SIZE=1280x820` escolhem o que mostrar.
 - Para pôr outra engine de fábrica: `gzip` do `.exe` para `assets/engines/` e uma linha em `src/engine.rs`.
 - Se vens da versão antiga "Xadrez", as engines adicionadas e as peças aprendidas passam sozinhas para a pasta do Gambito.
 
