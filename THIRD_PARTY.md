@@ -1,6 +1,6 @@
 # Componentes de terceiros
 
-O Xadrez é distribuído sob a **GPL-3.0** (ver `LICENSE`). O instalador inclui os programas abaixo, cada um com a
+O Gambito é distribuído sob a **GPL-3.0** (ver `LICENSE`). O instalador inclui os programas abaixo, cada um com a
 sua própria licença. O código-fonte de cada um está na página indicada (o instalador usa exatamente as versões
 listadas; `scripts/fetch-engines.ps1` descarrega-as com verificação SHA-256).
 
@@ -33,8 +33,15 @@ As engines não são alteradas: são os binários oficiais das respetivas releas
 
 [egui / eframe](https://github.com/emilk/egui) (MIT/Apache-2.0), [shakmaty](https://github.com/niklasf/shakmaty) (GPL-3.0),
 [image](https://github.com/image-rs/image), [resvg](https://github.com/linebender/resvg), [arboard](https://github.com/1Password/arboard),
-[rfd](https://github.com/PolyMeilex/rfd), [flate2](https://github.com/rust-lang/flate2-rs). A lista completa e as versões
-estão em `Cargo.lock`.
+[rfd](https://github.com/PolyMeilex/rfd), [flate2](https://github.com/rust-lang/flate2-rs),
+[ureq](https://github.com/algesten/ureq) (pedidos HTTPS) e [serde_json](https://github.com/serde-rs/json).
+A lista completa e as versões estão em `Cargo.lock`.
+
+## Serviços externos
+
+- **API pública do chess.com** (`api.chess.com/pub`, "Published-Data API"): usada só para ler partidas públicas e terminadas
+  de um utilizador, quando o utilizador carrega em "Procurar". Não é afiliada nem apoiada pelo chess.com. Confirma os
+  termos de utilização da API antes de distribuir.
 
 ## Instalador
 

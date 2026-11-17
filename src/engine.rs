@@ -31,7 +31,7 @@ pub fn known() -> Vec<Known> {
 }
 
 pub fn extract(k: &Known) -> PathBuf {
-    let p = std::env::temp_dir().join(format!("xadrez-{}-{}.exe", k.file, k.gz.len()));
+    let p = std::env::temp_dir().join(format!("gambito-{}-{}.exe", k.file, k.gz.len()));
     if !p.exists() {
         // unpack to a temp name first so an interrupted run never leaves a half-written .exe behind
         let tmp = p.with_extension("part");

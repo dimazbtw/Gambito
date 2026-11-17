@@ -1,11 +1,11 @@
-# Downloads the chess engines that Xadrez embeds, from their official GitHub releases (pinned versions),
+# Downloads the chess engines that Gambito embeds, from their official GitHub releases (pinned versions),
 # checks their SHA-256 and stores them gzip-compressed in assets/ (that is what src/engine.rs includes).
 # Run once before `cargo build`:   powershell -ExecutionPolicy Bypass -File scripts/fetch-engines.ps1
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"   # the progress bar makes Invoke-WebRequest extremely slow in Windows PowerShell 5.1
 $assets = Join-Path (Split-Path -Parent $PSScriptRoot) "assets"
 New-Item -ItemType Directory -Force (Join-Path $assets "engines") | Out-Null
-$tmp = Join-Path ([IO.Path]::GetTempPath()) "xadrez-engines"
+$tmp = Join-Path ([IO.Path]::GetTempPath()) "gambito-engines"
 New-Item -ItemType Directory -Force $tmp | Out-Null
 
 # name, download url, sha256 of the .exe, output (relative to assets/)

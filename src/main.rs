@@ -1,7 +1,9 @@
 #![windows_subsystem = "windows"]
 mod book;
+mod chesscom;
 mod engine;
 mod explain;
+mod pgn;
 mod vision;
 
 use eframe::egui::{self, Color32, Pos2, Rect, Sense, Stroke, Vec2};
@@ -60,7 +62,7 @@ struct Anim { idx: usize, from: Square, to: Square, t0: f64, capture: Option<(Sq
 struct EngineEntry { name: String, known: Option<usize>, path: Option<PathBuf> }
 
 fn cfg_path() -> Option<PathBuf> {
-    std::env::var_os("APPDATA").map(|a| PathBuf::from(a).join("Xadrez").join("engines.txt"))
+    std::env::var_os("APPDATA").map(|a| PathBuf::from(a).join("Gambito").join("engines.txt"))
 }
 
 /// Engines the user added (name<TAB>path per line); entries whose file vanished are skipped.
@@ -81,6 +83,9 @@ fn save_engines(list: &[EngineEntry]) {
 }
 
 struct Hint { san: String, text: String, line: String, ev: String, white_cp: i32, from: Square, to: Square }
+
+/// Who played a loaded game (from PGN headers or chess.com).
+struct GameInfo { white: String, black: String, white_elo: Option<u32>, black_elo: Option<u32>, result: String, cc_acc: Option<(f64, f64)> }
 
 struct Import { grid: vision::Grid, sils: vision::Sils, white_top: bool, white_to_move: bool }
 
@@ -173,6 +178,18 @@ struct App {
     tex: HashMap<(Color, Role), egui::TextureHandle>,
     tpl: vision::Templates,
     import: Option<Import>,
+    loaded: Option<GameInfo>,  // set while a PGN / chess.com game is open
+    pgn_text: String,
+    pgn_games: Vec<pgn::Game>, // games of a multi-game PGN waiting to be picked
+    cc_user: String,           // what the user typed
+    cc_query: String,          // the user name of the list below
+    cc_games: Vec<chesscom::CcGame>,
+    cc_archives: Vec<String>,
+    cc_loaded: usize,          // months fetched so far
+    cc_busy: bool,
+    cc_err: String,
+    net_tx: Sender<chesscom::Msg>,
+    net_rx: Receiver<chesscom::Msg>,
     marks: Vec<Mark>,          // arrows / squares drawn with the right mouse button
     mark_from: Option<Square>, // where the current right-button drag started
     brush: Option<Option<shakmaty::Piece>>, // board editor: None = off, Some(None) = eraser, Some(Some(p)) = place p
@@ -195,6 +212,7 @@ impl App {
         ctx.set_visuals(v);
         ctx.global_style_mut(|st| for f in st.text_styles.values_mut() { f.size *= 1.1; });
         let (tx, rx) = channel();
+        let (net_tx, net_rx) = channel();
         let mut engines: Vec<EngineEntry> = engine::known().iter().enumerate()
             .map(|(i, k)| EngineEntry { name: k.name.to_string(), known: Some(i), path: None }).collect();
         engines.extend(load_engines());
@@ -213,7 +231,8 @@ impl App {
             player: Engine::new(&exe, tx.clone(), ctx.clone()),
             analyst: Engine::new(&exe, tx.clone(), ctx.clone()),
             tx, ctx, engines, opp: 0, ana: 0, time: 0.0, anim: None, badge_t: (usize::MAX, 0.0), hints_t0: 0.0, skip_anim: false,
-            rx, tex, tpl: vision::Templates::new(&svgs), import: None, brush: None, marks: vec![], mark_from: None,
+            rx, tex, tpl: vision::Templates::new(&svgs), import: None, brush: None, loaded: None, pgn_text: String::new(), pgn_games: vec![], cc_user: String::new(), cc_query: String::new(),
+            cc_games: vec![], cc_archives: vec![], cc_loaded: 0, cc_busy: false, cc_err: String::new(), net_tx, net_rx, marks: vec![], mark_from: None,
         };
         app.after_move();
         app
@@ -221,6 +240,8 @@ impl App {
 
     fn new_game(&mut self, me: Color) {
         self.pos = Chess::default();
+        if self.loaded.take().is_some() { self.both = false; } // back to playing the engine
+        self.pgn_games.clear();
         self.reset_history();
         self.me = me;
         self.flipped = me == Color::Black;
@@ -483,6 +504,21 @@ impl App {
     }
 
     fn poll_engines(&mut self) {
+        while let Ok(m) = self.net_rx.try_recv() {
+            self.cc_busy = false;
+            match m {
+                chesscom::Msg::Games { user, archives, loaded, games } => {
+                    if user == self.cc_query {
+                        self.cc_archives = archives;
+                        self.cc_loaded = loaded;
+                        self.cc_games.extend(games);
+                        self.cc_games.sort_by(|a, b| b.end_time.cmp(&a.end_time));
+                        if self.cc_games.is_empty() { self.cc_err = "Sem partidas de xadrez normal nesses meses.".into(); }
+                    }
+                }
+                chesscom::Msg::Err(e) => self.cc_err = e,
+            }
+        }
         while let Ok(r) = self.rx.try_recv() {
             match r {
                 Reply::Play { fen, uci } if !self.both && fen == fen_of(&self.pos) => {
@@ -556,6 +592,7 @@ impl App {
                         for (i, row) in r.rows.iter().enumerate() { self.quality[i] = Some((row.class, row.best_san.clone())); }
                         self.review = Some(r);
                         self.reviewing = false;
+                        if self.loaded.is_some() { self.msg = "Avaliação concluída. Vê o separador Análise.".into(); }
                     }
                 }
                 _ => {}
@@ -595,6 +632,7 @@ impl App {
                 self.me = p.turn();
                 self.flipped = white_top; // show it like the screenshot
                 self.pos = p;
+                self.loaded = None;
                 self.reset_history();
                 self.last = None;
                 self.sel = None;
@@ -620,18 +658,29 @@ impl App {
         self.msg = format!("Aprendi {n} peças deste print. Os próximos prints com este estilo devem sair melhores.");
     }
 
-    fn paste_image(&mut self) {
-        match arboard::Clipboard::new().and_then(|mut c| c.get_image()) {
-            Ok(d) => {
-                if let Some(im) = image::RgbaImage::from_raw(d.width as u32, d.height as u32, d.bytes.into_owned()) {
-                    self.load_image(image::DynamicImage::ImageRgba8(im).to_rgb8());
-                }
+    /// Ctrl+V: a screenshot becomes a position, PGN text becomes a game.
+    fn paste_any(&mut self) {
+        if let Ok(d) = arboard::Clipboard::new().and_then(|mut c| c.get_image()) {
+            if let Some(im) = image::RgbaImage::from_raw(d.width as u32, d.height as u32, d.bytes.into_owned()) {
+                self.load_image(image::DynamicImage::ImageRgba8(im).to_rgb8());
+                return;
             }
-            Err(_) => self.msg = "Não há nenhuma imagem na área de transferência.".into(),
         }
+        if let Ok(t) = arboard::Clipboard::new().and_then(|mut c| c.get_text()) {
+            if self.try_pgn(&t) { return; }
+        }
+        self.msg = "Na área de transferência não há um print nem um PGN.".into();
     }
 
     fn open_file(&mut self, path: &std::path::Path) {
+        let is_pgn = path.extension().map_or(false, |e| e.eq_ignore_ascii_case("pgn") || e.eq_ignore_ascii_case("txt"));
+        if is_pgn {
+            match std::fs::read_to_string(path) {
+                Ok(t) => { self.pgn_text = t.clone(); if !self.try_pgn(&t) { self.msg = "Não encontrei nenhuma partida neste ficheiro.".into(); } }
+                Err(e) => self.msg = format!("Não consegui abrir o ficheiro: {e}"),
+            }
+            return;
+        }
         match image::open(path) {
             Ok(im) => self.load_image(im.to_rgb8()),
             Err(e) => self.msg = format!("Não consegui abrir a imagem: {e}"),
@@ -818,7 +867,7 @@ impl eframe::App for App {
         if r { self.goto(cur + 1); }
         if h { self.goto(0); }
         if e { self.goto(usize::MAX); }
-        if paste { self.paste_image(); }
+        if paste && !ctx.egui_wants_keyboard_input() { self.paste_any(); } // inside a text box, Ctrl+V is just text
         if let Some(p) = dropped { self.open_file(&p); }
     }
 
@@ -865,6 +914,10 @@ fn eval_pill(ui: &mut egui::Ui, text: &str, white_better: bool) {
 
 impl App {
     fn player_name(&self, c: Color) -> String {
+        if let Some(i) = &self.loaded {
+            let (n, e) = if c == Color::White { (&i.white, i.white_elo) } else { (&i.black, i.black_elo) };
+            return match e { Some(e) => format!("{n} ({e})"), None => n.clone() };
+        }
         if self.both { return if c == Color::White { "Brancas".into() } else { "Pretas".into() }; }
         if c == self.me { "Tu".into() } else { format!("{}  ({})", self.engines[self.opp].name, self.elo) }
     }
@@ -925,13 +978,13 @@ impl App {
         ui.horizontal(|ui| {
             ui.add_space(12.0);
             ui.add(piece_img(&self.tex[&(Color::White, Role::Knight)], 30.0));
-            ui.label(egui::RichText::new("Xadrez").size(22.0).strong());
+            ui.label(egui::RichText::new("Gambito").size(22.0).strong());
         });
         ui.add_space(6.0);
         ui.horizontal(|ui| {
             ui.add_space(8.0);
             ui.spacing_mut().item_spacing.x = 4.0;
-            for (i, t) in ["Jogar", "Análise", "Print"].iter().enumerate() {
+            for (i, t) in ["Jogar", "Análise", "Importar"].iter().enumerate() {
                 let sel = self.tab == i as u8;
                 let b = egui::Button::new(egui::RichText::new(*t).strong().size(15.0).color(if sel { Color32::WHITE } else { TXT2 }))
                     .fill(if sel { CARD } else { Color32::TRANSPARENT }).min_size(Vec2::new(112.0, 34.0));
@@ -941,7 +994,7 @@ impl App {
         ui.add_space(6.0);
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
             egui::Frame::new().inner_margin(egui::Margin::symmetric(10, 0)).show(ui, |ui| {
-                match self.tab { 0 => self.tab_play(ui), 1 => self.tab_analysis(ui), _ => self.tab_print(ui) }
+                match self.tab { 0 => self.tab_play(ui), 1 => self.tab_analysis(ui), _ => self.tab_import(ui) }
             });
         });
     }
@@ -952,6 +1005,10 @@ impl App {
         card(ui, |ui| {
             ui.label(egui::RichText::new(self.status()).size(18.0).strong());
             if !self.msg.is_empty() { ui.label(egui::RichText::new(&self.msg).color(AMBER)); }
+            if let Some(i) = &self.loaded {
+                ui.label(egui::RichText::new(format!("{} vs {}", i.white, i.black)).strong());
+                if !i.result.is_empty() { ui.label(egui::RichText::new(&i.result).small().color(TXT2)); }
+            }
             if self.view.is_some() {
                 ui.label(egui::RichText::new(format!("A ver o lance {idx} de {}  (End = voltar ao jogo)", self.hist.len())).color(Color32::from_rgb(130, 180, 240)));
             }
@@ -1112,6 +1169,9 @@ impl App {
                         });
                     }
                 });
+                if let Some((w, b)) = self.loaded.as_ref().and_then(|i| i.cc_acc) {
+                    ui.label(egui::RichText::new(format!("Precisão no chess.com: brancas {w:.1}% · pretas {b:.1}%")).small().color(TXT2));
+                }
                 ui.add_space(8.0);
                 for c in CLASSES.into_iter().filter(|c| r.counts[0][*c as usize] + r.counts[1][*c as usize] > 0) {
                     ui.horizontal(|ui| {
@@ -1134,17 +1194,83 @@ impl App {
         });
     }
 
-    fn tab_print(&mut self, ui: &mut egui::Ui) {
+    fn tab_import(&mut self, ui: &mut egui::Ui) {
+        if !self.msg.is_empty() {
+            card(ui, |ui| { ui.label(egui::RichText::new(&self.msg).color(AMBER)); });
+        }
+
+        // chess.com games of a user
+        card(ui, |ui| {
+            ui.label(egui::RichText::new("Partidas do chess.com").strong().size(15.0));
+            ui.label(egui::RichText::new("Escreve o nome de utilizador. Só aparecem partidas públicas e terminadas.").small().color(TXT2));
+            ui.horizontal(|ui| {
+                let te = ui.add(egui::TextEdit::singleline(&mut self.cc_user).hint_text("utilizador").desired_width(200.0));
+                let enter = te.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                let clicked = ui.add_enabled(!self.cc_busy, egui::Button::new("Procurar")).clicked();
+                if (clicked || enter) && !self.cc_busy { self.cc_search(false); }
+            });
+            if self.cc_busy { ui.label(egui::RichText::new("A buscar partidas…").color(TXT2)); }
+            if !self.cc_err.is_empty() { ui.label(egui::RichText::new(&self.cc_err).color(AMBER)); }
+            let user = self.cc_query.clone();
+            let mut pick = None;
+            egui::ScrollArea::vertical().id_salt("ccgames").max_height(300.0).auto_shrink([false, true]).show(ui, |ui| {
+                for (i, g) in self.cc_games.iter().enumerate().take(200) {
+                    let white = g.white.eq_ignore_ascii_case(&user);
+                    let (my_res, opp, opp_elo) = if white { (&g.white_result, &g.black, g.black_elo) } else { (&g.black_result, &g.white, g.white_elo) };
+                    let won = my_res == "win";
+                    let drew = g.white_result != "win" && g.black_result != "win";
+                    let (tag, col) = if won { ("V", GREEN) } else if drew { ("E", TXT2) } else { ("D", Color32::from_rgb(202, 52, 49)) };
+                    ui.horizontal(|ui| {
+                        ui.add_sized([16.0, 20.0], egui::Label::new(egui::RichText::new(tag).strong().color(col)));
+                        let elo = opp_elo.map_or("?".to_string(), |e| e.to_string());
+                        ui.label(format!("{opp} ({elo}) · {} · {}", g.time_class, chesscom::date(g.end_time)));
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            if ui.button("Analisar").clicked() { pick = Some(i); }
+                        });
+                    });
+                }
+            });
+            if let Some(i) = pick { self.load_cc_game(i); }
+            if !self.cc_games.is_empty() && self.cc_loaded < self.cc_archives.len() && !self.cc_busy && ui.button("Mais antigas").clicked() {
+                self.cc_search(true);
+            }
+        });
+
+        // PGN text or file
+        card(ui, |ui| {
+            ui.label(egui::RichText::new("PGN").strong().size(15.0));
+            ui.add(egui::TextEdit::multiline(&mut self.pgn_text).hint_text("Cola aqui o PGN (de qualquer site)…").desired_rows(5).desired_width(f32::INFINITY));
+            ui.horizontal(|ui| {
+                if ui.button("Carregar").clicked() {
+                    let t = self.pgn_text.clone();
+                    if !self.try_pgn(&t) { self.msg = "Não encontrei nenhuma partida neste texto.".into(); }
+                }
+                if ui.button("Abrir ficheiro…").clicked() {
+                    if let Some(p) = rfd::FileDialog::new().add_filter("PGN", &["pgn", "txt"]).pick_file() { self.open_file(&p); }
+                }
+            });
+            let mut pick = None;
+            for (i, g) in self.pgn_games.iter().enumerate().take(100) {
+                ui.horizontal(|ui| {
+                    ui.label(format!("{} vs {}  {}", g.header("White").unwrap_or("?"), g.header("Black").unwrap_or("?"), g.header("Result").unwrap_or("")));
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.button("Abrir").clicked() { pick = Some(i); }
+                    });
+                });
+            }
+            if let Some(i) = pick { let g = self.pgn_games[i].clone(); self.load_pgn_game(&g); }
+        });
+
+        // position from a screenshot
         card(ui, |ui| {
             ui.label(egui::RichText::new("Ler posição de um print").strong().size(15.0));
             ui.label(egui::RichText::new("Ctrl+V, arrastar a imagem para a janela, ou:").small().color(TXT2));
             ui.horizontal(|ui| {
-                if ui.button("Colar print").clicked() { self.paste_image(); }
+                if ui.button("Colar print ou PGN").clicked() { self.paste_any(); }
                 if ui.button("Abrir imagem…").clicked() {
                     if let Some(p) = rfd::FileDialog::new().add_filter("imagem", &["png", "jpg", "jpeg", "webp"]).pick_file() { self.open_file(&p); }
                 }
             });
-            if !self.msg.is_empty() { ui.label(egui::RichText::new(&self.msg).color(AMBER)); }
             let mut changed = false;
             if let Some(i) = &mut self.import {
                 ui.add_space(4.0);
@@ -1183,14 +1309,124 @@ impl App {
             });
         }
     }
+
+    // ---------- PGN / chess.com games ----------
+    fn cc_search(&mut self, more: bool) {
+        let user = chesscom::clean_user(&self.cc_user);
+        if user.is_empty() { self.cc_err = "Escreve o nome de utilizador.".into(); return; }
+        if !more || user != self.cc_query {
+            self.cc_games.clear();
+            self.cc_archives.clear();
+            self.cc_loaded = 0;
+            self.cc_query = user.clone();
+        }
+        self.cc_err.clear();
+        self.cc_busy = true;
+        chesscom::fetch(user, self.cc_archives.clone(), self.cc_loaded, if more { 3 } else { 2 }, self.net_tx.clone(), self.ctx.clone());
+    }
+
+    fn load_cc_game(&mut self, i: usize) {
+        let g = self.cc_games[i].clone();
+        let Some(pgn) = pgn::parse_games(&g.pgn).into_iter().find(|p| !p.moves.is_empty()) else {
+            self.msg = "Esta partida não tem lances.".into();
+            return;
+        };
+        let me = if g.black.eq_ignore_ascii_case(&self.cc_query) { Color::Black } else { Color::White };
+        let result = match (g.white_result.as_str(), g.black_result.as_str()) {
+            ("win", _) => "Brancas ganham",
+            (_, "win") => "Pretas ganham",
+            _ => "Empate",
+        };
+        let how = chesscom::termination(&g);
+        let info = GameInfo {
+            white: g.white.clone(), black: g.black.clone(), white_elo: g.white_elo, black_elo: g.black_elo,
+            result: format!("{result}{} · {} · {}", if how.is_empty() { String::new() } else { format!(" por {how}") }, g.time_class, chesscom::date(g.end_time)),
+            cc_acc: g.acc,
+        };
+        self.load_game(&pgn, info, me);
+    }
+
+    fn load_pgn_game(&mut self, g: &pgn::Game) {
+        let elo = |k: &str| g.header(k).and_then(|v| v.parse::<u32>().ok());
+        let result = match g.header("Result") { Some("1-0") => "Brancas ganham", Some("0-1") => "Pretas ganham", Some("1/2-1/2") => "Empate", _ => "" };
+        let mut extra: Vec<&str> = vec![result];
+        extra.extend(g.header("Termination"));
+        extra.extend(g.header("Date").filter(|d| !d.contains('?')));
+        let info = GameInfo {
+            white: g.header("White").unwrap_or("Brancas").to_string(), black: g.header("Black").unwrap_or("Pretas").to_string(),
+            white_elo: elo("WhiteElo"), black_elo: elo("BlackElo"),
+            result: extra.into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" · "), cc_acc: None,
+        };
+        self.load_game(g, info, Color::White);
+    }
+
+    /// Puts a whole game on the board, opens it at the first move (like chess.com) and evaluates it.
+    fn load_game(&mut self, g: &pgn::Game, info: GameInfo, me: Color) {
+        let (start, moves) = match g.replay() {
+            Ok(x) => x,
+            Err(e) => { self.msg = format!("Não consegui ler a partida: {e}"); return; }
+        };
+        self.import = None;
+        self.brush = None;
+        self.reset_history();
+        let mut pos = start;
+        for m in moves {
+            let san = SanPlus::from_move(pos.clone(), m.clone()).to_string();
+            let next = pos.clone().play(m.clone()).unwrap();
+            self.hist.push((std::mem::replace(&mut pos, next), san));
+            self.mvs.push(m);
+            self.quality.push(None);
+        }
+        self.pos = pos;
+        self.both = true; // analysing: you move both sides, no engine replies
+        self.me = self.pos.turn();
+        self.flipped = me == Color::Black;
+        self.sel = None;
+        self.anim = None;
+        self.last = self.mvs.last().and_then(|m| m.from().map(|f| (f, dest(m))));
+        self.loaded = Some(info);
+        self.view = if self.hist.is_empty() { None } else { Some(0) };
+        self.tab = 0;
+        self.pgn_games.clear();
+        self.msg = format!("Partida carregada: {} lances. A avaliar…", self.mvs.len());
+        self.after_move();
+        self.request_hints();
+        self.start_review();
+    }
+
+    /// Loads a PGN text: one game opens at once, several are listed to pick from. False if there is none.
+    fn try_pgn(&mut self, text: &str) -> bool {
+        let games: Vec<pgn::Game> = pgn::parse_games(text).into_iter().filter(|g| !g.moves.is_empty()).collect();
+        match games.len() {
+            0 => false,
+            1 => { self.load_pgn_game(&games[0]); true }
+            n => {
+                self.pgn_games = games;
+                self.tab = 2;
+                self.msg = format!("O PGN tem {n} partidas: escolhe uma.");
+                true
+            }
+        }
+    }
+}
+
+/// The app used to be called Xadrez: carry its saved engines and learned piece shapes over.
+fn migrate_old_data() {
+    let Some(a) = std::env::var_os("APPDATA").map(PathBuf::from) else { return };
+    let (old, new) = (a.join("Xadrez"), a.join("Gambito"));
+    if old.is_dir() && !new.exists() {
+        let _ = std::fs::create_dir_all(&new);
+        if let Ok(rd) = std::fs::read_dir(&old) { for e in rd.flatten() { let _ = std::fs::copy(e.path(), new.join(e.file_name())); } }
+    }
 }
 
 fn main() -> eframe::Result {
+    migrate_old_data();
     let opts = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([1060.0, 740.0]).with_title("Xadrez"),
+        viewport: egui::ViewportBuilder::default().with_inner_size([1060.0, 740.0]).with_title("Gambito"),
         ..Default::default()
     };
-    eframe::run_native("Xadrez", opts, Box::new(|cc| Ok(Box::new(App::new(cc)))))
+    eframe::run_native("Gambito", opts, Box::new(|cc| Ok(Box::new(App::new(cc)))))
 }
 
 /// Square the moved piece ends on (shakmaty reports the rook's square for castling).

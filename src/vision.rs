@@ -102,7 +102,7 @@ pub struct Templates {
 }
 
 fn learned_path() -> Option<std::path::PathBuf> {
-    std::env::var_os("APPDATA").map(|a| std::path::PathBuf::from(a).join("Xadrez").join("learned.txt"))
+    std::env::var_os("APPDATA").map(|a| std::path::PathBuf::from(a).join("Gambito").join("learned.txt"))
 }
 
 impl Templates {

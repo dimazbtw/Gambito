@@ -29,10 +29,10 @@ jobs:
           & "C:\Program Files (x86)\NSIS\makensis.exe" installer.nsi
       - uses: actions/upload-artifact@v4
         with:
-          name: Xadrez-Setup
-          path: dist/Xadrez-Setup.exe
+          name: Gambito-Setup
+          path: dist/Gambito-Setup.exe
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/Xadrez-Setup.exe
+          files: dist/Gambito-Setup.exe
