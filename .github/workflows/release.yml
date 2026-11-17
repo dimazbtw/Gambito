@@ -1,0 +1,38 @@
+# Builds the Windows installer. Run it by hand (Actions > Release > Run workflow) or push a tag like v1.0.0,
+# which also publishes the installer as a GitHub Release asset.
+name: Release
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Download the bundled engines
+        shell: powershell
+        run: ./scripts/fetch-engines.ps1
+      - name: Tests
+        run: cargo test --release
+      - name: Build
+        run: cargo build --release
+      - name: Installer (NSIS)
+        shell: powershell
+        run: |
+          choco install nsis -y --no-progress
+          & "C:\Program Files (x86)\NSIS\makensis.exe" installer.nsi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Xadrez-Setup
+          path: dist/Xadrez-Setup.exe
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Xadrez-Setup.exe
