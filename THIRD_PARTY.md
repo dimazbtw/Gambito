@@ -18,6 +18,12 @@ listadas; `scripts/fetch-engines.ps1` descarrega-as com verificação SHA-256).
 
 As engines não são alteradas: são os binários oficiais das respetivas releases.
 
+## Tipos de letra e logótipo
+
+- **Outfit** (Medium e SemiBold): The Outfit Project Authors, SIL Open Font License 1.1 (`assets/fonts/OFL-Outfit.txt`).
+- **Inter**: The Inter Project Authors, SIL Open Font License 1.1 (`assets/fonts/OFL-Inter.txt`).
+- **Logótipo** (`assets/logo.webp`, `assets/icon.ico`): do autor do Gambito.
+
 ## Dados
 
 - **Aberturas** (`assets/openings/*.tsv`): [lichess-org/chess-openings](https://github.com/lichess-org/chess-openings),

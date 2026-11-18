@@ -27,6 +27,8 @@ VIAddVersionKey "FileVersion" "${VERSION}"
 VIAddVersionKey "LegalCopyright" "GPL-3.0"
 VIAddVersionKey "FileDescription" "Instalador do ${APP}"
 
+!define MUI_ICON "assets\icon.ico"
+!define MUI_UNICON "assets\icon.ico"
 !define MUI_ABORTWARNING
 !define MUI_FINISHPAGE_RUN "$INSTDIR\Gambito.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "Abrir o ${APP}"

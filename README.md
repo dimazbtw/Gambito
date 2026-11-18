@@ -19,9 +19,12 @@ utilizador (sem pedir administrador), cria atalhos e aparece em "Apps instaladas
 
 ## O que faz
 
-- **Menu à direita**: **Principal** (jogar, sugestões, lances, importar imagem, editar tabuleiro e FEN) e **Importar**
-  (partidas do chess.com e PGN). Quando a partida termina (ou abres uma importada) aparece o botão **Análise da partida**.
-  A engrenagem junto ao tabuleiro abre as definições (engines, Elo do adversário, jogar os dois lados).
+- **Menu à esquerda**: **Analisar** (tabuleiro, sugestões, lances, importar imagem, editar tabuleiro e FEN), **Partidas**
+  (chess.com e PGN) e **Definições** (engines, Elo do adversário, jogar os dois lados). Início, Exercícios e Aprender
+  ainda não existem. Quando a partida termina (ou abres uma importada) aparece o botão dourado **Análise da partida**,
+  com a precisão, o gráfico da avaliação e os lances a rever.
+- **Barra de reprodução** por baixo do tabuleiro (início, anterior, reproduzir sozinho, seguinte, fim) e, para listas
+  de partidas importadas, "Partida N de M" no topo. O ícone de descarregar copia a partida em PGN.
 - **Jogar** contra a engine que escolheres, com o Elo que quiseres (1000–2600), ou jogar os dois lados.
 - **3 melhores jogadas** com setas numeradas, avaliação e uma explicação, por exemplo
   *"O bispo dá xeque e ameaça a dama."* O Elo das sugestões também se ajusta (muda a profundidade da análise).
