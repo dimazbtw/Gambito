@@ -27,6 +27,17 @@ pub(crate) fn art_bytes(name: &str) -> &'static [u8] {
         "lesson_endgames" => include_bytes!("../assets/art/lesson_endgames.webp"),
         "lesson_openings" => include_bytes!("../assets/art/lesson_openings.webp"),
         "knight" => include_bytes!("../assets/setup/knight.png"),
+        "game_memory" => include_bytes!("../assets/art/game_memory.webp"),
+        "game_trail" => include_bytes!("../assets/art/game_trail.webp"),
+        "game_blind" => include_bytes!("../assets/art/game_blind.webp"),
+        "game_check" => include_bytes!("../assets/art/game_check.webp"),
+        "game_mates" => include_bytes!("../assets/art/game_mates.webp"),
+        "game_change" => include_bytes!("../assets/art/game_change.webp"),
+        "game_legal" => include_bytes!("../assets/art/game_legal.webp"),
+        "game_crash" => include_bytes!("../assets/art/game_crash.webp"),
+        "game_mines" => include_bytes!("../assets/art/game_mines.webp"),
+        "game_queens" => include_bytes!("../assets/art/game_queens.webp"),
+        "game_pairs" => include_bytes!("../assets/art/game_pairs.webp"),
         _ => include_bytes!("../assets/art/empty_state.webp"),
     }
 }
@@ -38,7 +49,7 @@ fn cp_of_win(w: f32) -> f32 {
 }
 
 impl App {
-    fn art(&mut self, name: &'static str) -> (egui::TextureId, [usize; 2]) {
+    pub(crate) fn art(&mut self, name: &'static str) -> (egui::TextureId, [usize; 2]) {
         if let Some((t, s)) = self.art.get(name) { return (t.id(), *s); }
         let img = image::load_from_memory(art_bytes(name)).map(|i| i.to_rgba8()).unwrap_or_else(|_| image::RgbaImage::new(1, 1));
         let size = [img.width() as usize, img.height() as usize];
@@ -86,12 +97,12 @@ impl App {
             6 => page(ui, &mut |ui| self.games_page(ui)),
             _ => self.board_screen(ui, content),
         }
-        // a new screen fades in (the ink of the page lifts off it)
-        if self.tab_t.0 != self.tab { self.tab_t = (self.tab, self.time); self.request_hints(); }
-        let fade = if motion::on() { (1.0 - (self.time - self.tab_t.1) / 0.22).clamp(0.0, 1.0) as f32 } else { 0.0 };
-        if fade > 0.0 {
-            ui.painter().rect_filled(content, 0.0, BG.gamma_multiply(fade * fade));
-            ui.ctx().request_repaint();
+        if self.tab_t.0 != self.tab {
+            self.tab_t = (self.tab, self.time);
+            let bit = 1u16 << (self.tab as u32).min(15);
+            self.replay = self.seen_tabs & bit == 0;
+            self.seen_tabs |= bit;
+            self.request_hints();
         }
         self.toast_ui(ui, content);
         let t = self.time;
@@ -103,7 +114,9 @@ impl App {
     // ---------- side menu ----------
 
     /// Seconds since the current screen appeared (what the entrances are timed by).
-    pub(crate) fn page_age(&self) -> f64 { self.time - self.tab_t.1 }
+    /// A screen's entrance (cards rising, numbers counting, bars filling) plays only the first time it is opened in a
+    /// session: the menu is used tens of times a day, so later visits are instant.
+    pub(crate) fn page_age(&self) -> f64 { if self.replay { self.time - self.tab_t.1 } else { 10.0 } }
 
     fn side_menu(&mut self, ui: &mut egui::Ui, rect: Rect) {
         let (knight, _) = self.art("knight");
@@ -127,7 +140,7 @@ impl App {
         // the gold highlight glides to the selected item
         let sel_i = items.iter().position(|it| match it.2 { 1 => self.tab == 1 || self.tab == 2, t => self.tab == t });
         if let Some(i) = sel_i {
-            let gy = ui.ctx().animate_value_with_time(egui::Id::new("menu_sel"), y + i as f32 * 50.0, 0.2);
+            let gy = motion::glide(ui.ctx(), egui::Id::new("menu_sel"), y + i as f32 * 50.0, 0.22);
             p.rect_filled(Rect::from_min_size(Pos2::new(rect.left() + 14.0, gy), Vec2::new(rect.width() - 28.0, 46.0)), 12.0, GOLD_BG);
         }
         let mut row = |ui: &mut egui::Ui, y: f32, icon: Ico, label: &str, target: u8, badge: bool, selected: bool| {
@@ -217,14 +230,14 @@ impl App {
         let age = self.time - t0;
         if age > LIFE { self.toast = None; return; }
         ui.ctx().request_repaint();
-        let a = (age / 0.15).min(1.0).min((LIFE - age) / 0.4) as f32; // fade in, fade out
-        // slides down from above and settles with a small bounce (ease-out-back)
-        let t = (age / 0.35).clamp(0.0, 1.0) as f32;
-        let back = 1.0 + 2.70158 * (t - 1.0).powi(3) + 1.70158 * (t - 1.0).powi(2);
+        let a = (age / 0.12).min(1.0).min((LIFE - age) / 0.18) as f32; // fade in 120 ms, out 180 ms (leaving is faster)
+        // slides down 24 px with an ease-out in 250 ms: no bounce, and still when animations are off
+        let t = if motion::on() { (age / 0.25).clamp(0.0, 1.0) as f32 } else { 1.0 };
+        let back = motion::ease_out(t);
         let p = ui.ctx().layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::new("toast")));
         let g = p.layout(text, egui::FontId::proportional(14.5), CREAM.gamma_multiply(a), 520.0);
         let size = g.size() + Vec2::new(66.0, 26.0);
-        let r = Rect::from_center_size(Pos2::new(content.center().x, content.top() + 26.0 + size.y / 2.0 - (1.0 - back) * 40.0), size);
+        let r = Rect::from_center_size(Pos2::new(content.center().x, content.top() + 26.0 + size.y / 2.0 - (1.0 - back) * 24.0), size);
         p.rect_filled(r.translate(Vec2::new(0.0, 4.0)), 14.0, Color32::from_black_alpha((90.0 * a) as u8));
         // 3 = an achievement: gold card with a trophy
         p.rect_filled(r, 14.0, if kind == 3 { GOLD_CARD } else { CARD2 }.gamma_multiply(a));
@@ -472,7 +485,7 @@ impl App {
         p.rect_stroke(tabs, 12.0, Stroke::new(1.0, LINE), egui::StrokeKind::Inside);
         let names = [tl("Lances"), tl("Sugestões"), tl("Análise")];
         let w = (tabs.width() - 8.0) / 3.0;
-        let glide = if motion::on() { ui.ctx().animate_value_with_time(egui::Id::new("ptab_glide"), self.panel_tab as f32, 0.16) } else { self.panel_tab as f32 };
+        let glide = if motion::on() { motion::glide(ui.ctx(), egui::Id::new("ptab_glide"), self.panel_tab as f32, 0.18) } else { self.panel_tab as f32 };
         p.rect_filled(Rect::from_min_size(Pos2::new(tabs.left() + 4.0 + glide * w, tabs.top() + 4.0), Vec2::new(w, tabs.height() - 8.0)), 9.0, Color32::from_rgb(35, 35, 40));
         for (k, name) in names.iter().enumerate() {
             let r = Rect::from_min_size(Pos2::new(tabs.left() + 4.0 + k as f32 * w, tabs.top() + 4.0), Vec2::new(w, tabs.height() - 8.0));
@@ -836,7 +849,7 @@ impl App {
         let cards: [(&'static str, &str, String, u8); 4] = [
             ("card_play", tl("Jogar"), tl("Contra a engine, ao Elo que quiseres, com as melhores jogadas explicadas.").into(), 0),
             ("card_learn", tl("Aprender"), tr!("{} lições curtas de táticas, mates, finais e aberturas.", LESSONS.len()), 2),
-            ("card_puzzles", tl("Jogos"), tr!("{} jogos curtos de visão, memória e cálculo.", crate::games::GAMES.len()), 7),
+            ("game_pairs", tl("Jogos"), tr!("{} jogos curtos de visão, memória e cálculo.", crate::games::GAMES.len()), 7),
             ("card_analyse", tl("Analisar"), tl("Revê as tuas partidas do chess.com, do Lichess ou de um PGN, lance a lance.").into(), 3),
         ];
         let cols = if w > 1040.0 { 4 } else if w > 560.0 { 2 } else { 1 };
@@ -1048,7 +1061,7 @@ impl App {
                     let p = ui.painter();
                     p.rect_filled(r, 10.0, BG);
                     p.rect_stroke(r, 10.0, Stroke::new(1.0, LINE2), egui::StrokeKind::Inside);
-                    let slide = ui.ctx().animate_value_with_time(egui::Id::new("cc_site"), self.cc_site as f32, 0.18);
+                    let slide = motion::glide(ui.ctx(), egui::Id::new("cc_site"), self.cc_site as f32, 0.18);
                     let half = (r.width() - 6.0) / 2.0;
                     p.rect_filled(Rect::from_min_size(r.min + Vec2::new(3.0 + slide * half, 3.0), Vec2::new(half, r.height() - 6.0)), 8.0, GOLD_BG);
                     for (k, name) in ["chess.com", "Lichess"].into_iter().enumerate() {
@@ -1217,6 +1230,17 @@ impl App {
     // ---------- Definições ----------
 
     fn settings_page(&mut self, ui: &mut egui::Ui) {
+        // the column is at most 780 px wide and sits in the middle, not against the left edge of a wide window
+        let avail = ui.available_width();
+        let w0 = avail.min(780.0);
+        let pad = ((avail - w0) / 2.0).max(0.0);
+        ui.horizontal_top(|ui| {
+            ui.add_space(pad);
+            ui.vertical(|ui| { ui.set_max_width(w0); ui.set_min_width(w0); self.settings_body(ui); });
+        });
+    }
+
+    fn settings_body(&mut self, ui: &mut egui::Ui) {
         ui.label(semi(tl("Definições"), 32.0));
         ui.add_space(16.0);
         let w = ui.available_width().min(780.0);

@@ -85,11 +85,23 @@ tag such as `v1.0.0` to also publish the Release with the installer.
   Nothing animates forever, so an idle window draws nothing (0% CPU). `GAMBITO_PERF=1` prints, every second, the
   frames, the time of our drawing code and who asked for each repaint (by file:line), plus the startup timings.
 - **Motion** (`src/motion.rs`): the rules in one place, from published standards (Emil Kowalski's animation notes,
-  Material motion): short (mostly under 300 ms), ease-out entrances, cards rise in one after another (50 ms apart)
-  and lift on hover, buttons shrink to 97% while pressed, numbers count up when a screen opens, the highlight of the
-  menu and of the panel tabs glides, a spreading ring marks a new check, confetti only for a win or a record, a
-  skeleton pulses while online games load. Things done hundreds of times (moving with the keyboard, legal-move dots)
-  are not decorated. Settings -> Animations (default: Windows' "Show animations") turns everything to instant.
+  Material motion). Short (mostly under 300 ms) and ease-out; things that move across the screen (the menu highlight,
+  the panel tabs) glide with an ease-in-out (`glide`); buttons shrink to 97% while pressed; a spreading ring marks a
+  new check; confetti only for a win or a record; a skeleton pulses while online games load; the toast slides in
+  250 ms and leaves in 180 ms, with no bounce. What is done tens or hundreds of times a day is not decorated: a
+  screen's entrance (cards rising 40 ms apart, numbers counting, bars filling) plays only the first time it is opened
+  in a session (`App::page_age`), hovering a card changes colour only, and stepping through a game with the keyboard
+  has no slide. Settings -> Animations (default: Windows' "Show animations") turns it all to instant.
+  Every frame costs a lot of CPU in this app, so nothing animates forever and a game picks its repaint rate by what
+  moves (`Run::repaint_gap`: every frame for a flash or a flip, 20-30 a second for a counter or a reveal, 10 a second
+  while it waits for a tap).
+- **Pieces in the games** slide like on the main board (`Slide`: 200 ms, ease-out, a captured piece fades out underneath):
+  Mate Sprint (my move and the reply), Hanging Piece, and Knight Route (the knight glides between hops). Pawn Recall's
+  pawns pop in one after another, fade out when the time is up and pop back when found, inside a gold border round
+  the lit window that glides to the next level's window. New positions in Who Gives Check? and Legal or Illegal?
+  fade in. `GAMBITO_SLOWMO=10` makes the slide ten times longer, to look at it frame by frame.
+- **Game art**: each of the 11 games has a picture (`assets/art/game_<key>.webp`, shown on its card and in its panel),
+  made by the author like the other art. `card_play.webp` is the Play card of the home screen.
 - **Sounds** (`src/sound.rs`): made in code when first played (a wooden knock, bells), as 16-bit WAVs in memory,
   played with Windows' `PlaySound` (winmm), so there is no audio library and no sound file.
 - **Settings** kept in `settings.json` (`i18n::setting` / `i18n::save_setting`): language, opponent strength,

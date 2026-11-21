@@ -10,6 +10,7 @@ const RED: Color32 = Color32::from_rgb(235, 107, 92);
 
 pub(crate) struct Info {
     pub key: &'static str,
+    pub art: &'static str,
     pub name: &'static str,
     pub blurb: &'static str,
     pub piece: (Color, Role),
@@ -17,17 +18,17 @@ pub(crate) struct Info {
 }
 
 pub(crate) const GAMES: [Info; 11] = [
-    Info { key: "memory", name: "Memória de peões", blurb: "Memoriza onde estão os peões e toca em todas as casas onde estavam.", piece: (Color::White, Role::Pawn), lower_better: false },
-    Info { key: "trail", name: "Rota do cavalo", blurb: "Vê o cavalo saltar e repete o mesmo caminho, pela mesma ordem.", piece: (Color::White, Role::Knight), lower_better: false },
-    Info { key: "blind", name: "Às cegas", blurb: "As peças desaparecem: segue os lances de cabeça e responde à pergunta.", piece: (Color::Black, Role::Bishop), lower_better: false },
-    Info { key: "check", name: "Quem dá xeque?", blurb: "Toca na peça que dá xeque, o mais depressa possível. Cinco rondas; um erro conta 5 segundos.", piece: (Color::Black, Role::King), lower_better: true },
-    Info { key: "mates", name: "Mates contra o relógio", blurb: "Faz o máximo de xeque-mates em dois minutos, do mate em 1 ao mate em 3. Três erros e acaba.", piece: (Color::White, Role::Rook), lower_better: false },
-    Info { key: "change", name: "O que mudou?", blurb: "Estuda o tabuleiro, carrega em Pronto e toca em todas as casas que mudaram.", piece: (Color::White, Role::Bishop), lower_better: false },
-    Info { key: "legal", name: "Legal ou ilegal?", blurb: "Diz se o lance da seta é legal ou ilegal, antes que o tempo acabe.", piece: (Color::Black, Role::Pawn), lower_better: false },
-    Info { key: "crash", name: "Peça pendurada", blurb: "O multiplicador sobe até alguém deixar uma peça pendurada. Recolhe o ouro antes que ela caia, ou voltas aos 100.", piece: (Color::Black, Role::Queen), lower_better: false },
-    Info { key: "mines", name: "Casas seguras", blurb: "Toca só nas casas que nenhuma peça preta ataca. Dois minutos, tabuleiro atrás de tabuleiro; três erros e acaba.", piece: (Color::Black, Role::Rook), lower_better: false },
-    Info { key: "queens", name: "Damas por cores", blurb: "Uma dama em cada cor, sem nenhuma atacar outra (linha, coluna ou diagonal). Resolve o máximo de grelhas em três minutos.", piece: (Color::White, Role::Queen), lower_better: false },
-    Info { key: "pairs", name: "Pares", blurb: "Vira duas cartas de cada vez e encontra todos os pares antes de acabarem os lances.", piece: (Color::Black, Role::Knight), lower_better: false },
+    Info { key: "memory", art: "game_memory", name: "Memória de peões", blurb: "Memoriza onde estão os peões e toca em todas as casas onde estavam.", piece: (Color::White, Role::Pawn), lower_better: false },
+    Info { key: "trail", art: "game_trail", name: "Rota do cavalo", blurb: "Vê o cavalo saltar e repete o mesmo caminho, pela mesma ordem.", piece: (Color::White, Role::Knight), lower_better: false },
+    Info { key: "blind", art: "game_blind", name: "Às cegas", blurb: "As peças desaparecem: segue os lances de cabeça e responde à pergunta.", piece: (Color::Black, Role::Bishop), lower_better: false },
+    Info { key: "check", art: "game_check", name: "Quem dá xeque?", blurb: "Toca na peça que dá xeque, o mais depressa possível. Cinco rondas; um erro conta 5 segundos.", piece: (Color::Black, Role::King), lower_better: true },
+    Info { key: "mates", art: "game_mates", name: "Mates contra o relógio", blurb: "Faz o máximo de xeque-mates em dois minutos, do mate em 1 ao mate em 3. Três erros e acaba.", piece: (Color::White, Role::Rook), lower_better: false },
+    Info { key: "change", art: "game_change", name: "O que mudou?", blurb: "Estuda o tabuleiro, carrega em Pronto e toca em todas as casas que mudaram.", piece: (Color::White, Role::Bishop), lower_better: false },
+    Info { key: "legal", art: "game_legal", name: "Legal ou ilegal?", blurb: "Diz se o lance da seta é legal ou ilegal, antes que o tempo acabe.", piece: (Color::Black, Role::Pawn), lower_better: false },
+    Info { key: "crash", art: "game_crash", name: "Peça pendurada", blurb: "O multiplicador sobe até alguém deixar uma peça pendurada. Recolhe o ouro antes que ela caia, ou voltas aos 100.", piece: (Color::Black, Role::Queen), lower_better: false },
+    Info { key: "mines", art: "game_mines", name: "Casas seguras", blurb: "Toca só nas casas que nenhuma peça preta ataca. Dois minutos, tabuleiro atrás de tabuleiro; três erros e acaba.", piece: (Color::Black, Role::Rook), lower_better: false },
+    Info { key: "queens", art: "game_queens", name: "Damas por cores", blurb: "Uma dama em cada cor, sem nenhuma atacar outra (linha, coluna ou diagonal). Resolve o máximo de grelhas em três minutos.", piece: (Color::White, Role::Queen), lower_better: false },
+    Info { key: "pairs", art: "game_pairs", name: "Pares", blurb: "Vira duas cartas de cada vez e encontra todos os pares antes de acabarem os lances.", piece: (Color::Black, Role::Knight), lower_better: false },
 ];
 
 /// What "score" means for each game, for the panel and the list.
@@ -95,7 +96,7 @@ fn random_line(pos: &Chess, n: usize, r: &mut Rng) -> Vec<Move> {
 enum Quest { Where { from: Square, role: Role, color: Color, answer: Square }, What { sq: Square, answer: Option<Piece> } }
 
 enum St {
-    Memory { level: u32, pawns: Vec<Square>, window: Bitboard, show_until: f64, found: Vec<Square>, next: Option<f64> },
+    Memory { level: u32, pawns: Vec<Square>, window: Bitboard, show_until: f64, start: f64, found: Vec<Square>, found_t: Vec<f64>, next: Option<f64> },
     Trail { level: u32, route: Vec<Square>, shown_at: f64, dt: f64, input: Vec<Square>, next: Option<f64> },
     Blind { level: u32, start: Chess, moves: Vec<Move>, end: Chess, phase: u8, t: f64, dt: f64, quest: Quest, right: Option<bool> },
     Check { round: u32, pos: Chess, checker: Square, t: f64, times: Vec<f64>, wrong_at: Option<Square> },
@@ -106,6 +107,16 @@ enum St {
     Mines { board: Board, safe: Bitboard, found: Bitboard, wrong: Bitboard, boards: u32, next: Option<f64> },
     Queens { n: usize, region: Vec<u8>, sol: Vec<usize>, placed: Vec<usize>, solved: u32, next: Option<f64> },
     Pairs { level: u32, faces: Vec<(Piece, Option<Square>)>, up: Vec<usize>, matched: Vec<bool>, moves: u32, hide_at: Option<f64>, flip_t: Vec<f64>, next: Option<f64> },
+}
+
+/// A piece sliding to its new square (like the main board): 200 ms, ease-out; a captured piece fades out underneath.
+#[derive(Clone, Copy)]
+struct Slide { from: Square, to: Square, t0: f64, capture: Option<(Square, Piece)> }
+const SLIDE_SECS: f64 = 0.2;
+/// The slide's length. Dev: GAMBITO_SLOWMO=10 makes it ten times longer, to look at it frame by frame.
+fn slide_secs() -> f64 {
+    static F: std::sync::OnceLock<f64> = std::sync::OnceLock::new();
+    SLIDE_SECS * *F.get_or_init(|| std::env::var("GAMBITO_SLOWMO").ok().and_then(|v| v.parse().ok()).unwrap_or(1.0))
 }
 
 pub(crate) struct Run {
@@ -126,9 +137,37 @@ pub(crate) struct Run {
     input: bool, // this pass may act on clicks and keys
     bot_t: f64,  // dev: next move of the GAMBITO_GAMEBOT player
     inject: Option<usize>, // dev: the grid cell that player picks
+    slide: Option<Slide>,  // the last move's slide
 }
 
 impl Run {
+    /// How long the screen may rest before the next frame. Zero = every frame (something fast moves: a flash, a card
+    /// flipping, the confetti). A counter or a clock bar needs only 20 frames a second, a reveal 30, and a game
+    /// waiting for a tap just a 10 Hz tick for its clocks and time-outs. (Every frame costs a lot of CPU in this app.)
+    fn repaint_gap(&self, now: f64) -> std::time::Duration {
+        use std::time::Duration;
+        let ms = |n: u64| Duration::from_millis(n);
+        if let Some(at) = self.over { return if now - at < 3.0 { Duration::ZERO } else { ms(100) }; } // the end card and the confetti
+        if now - self.flash.0 < 0.7 || now - self.pop < 0.45 { return Duration::ZERO; }
+        if self.slide.map_or(false, |s| now - s.t0 < slide_secs() + 0.05) { return Duration::ZERO; }
+        match &self.st {
+            St::Memory { show_until, start, pawns, found_t, next, .. } => {
+                let popping = now < *start + 0.2 + 0.04 * pawns.len() as f64 + 0.25 || (*show_until..*show_until + 0.25).contains(&now) || found_t.iter().any(|t| now - t < 0.3);
+                if popping { Duration::ZERO } else if now < *show_until + 0.1 || next.is_some() { ms(33) } else { ms(100) }
+            }
+            St::Trail { shown_at, dt, route, .. } => if now < *shown_at + *dt * route.len() as f64 + 0.3 { ms(33) } else { ms(100) },
+            St::Blind { phase, .. } | St::Change { phase, .. } => if *phase == 1 || *phase == 3 { ms(33) } else { ms(100) },
+            St::Check { t, .. } => if now >= *t && now < *t + 0.25 { Duration::ZERO } else if now < *t + 0.3 { ms(33) } else { ms(100) },
+            St::Mates { reply_at, next, .. } => if reply_at.is_some() || next.is_some() { ms(33) } else { ms(100) },
+            St::Legal { t, answered, .. } => if now - *t < 0.25 { Duration::ZERO } else if answered.map_or(true, |(_, at)| now - at < 0.8) { ms(50) } else { ms(100) }, // the fade-in, then the time bar
+            St::Crash { end, .. } => if end.map_or(true, |(_, _, at)| now - at < 2.3) { ms(50) } else { ms(100) }, // the counter
+            St::Mines { next, .. } | St::Queens { next, .. } => if next.is_some() { ms(33) } else { ms(100) },
+            St::Pairs { hide_at, next, flip_t, .. } => {
+                if flip_t.iter().any(|t| now - t < 0.3) { Duration::ZERO } else if hide_at.is_some() || next.is_some() { ms(33) } else { ms(100) }
+            }
+        }
+    }
+
     fn good(&mut self, now: f64) { self.flash = (now, true); crate::sound::play(crate::sound::Snd::Right); }
     fn bad(&mut self, now: f64) { self.flash = (now, false); crate::sound::play(crate::sound::Snd::Wrong); }
     fn lose_heart(&mut self, now: f64) { self.bad(now); self.hearts = self.hearts.saturating_sub(1); if self.hearts == 0 { self.over = Some(now); } }
@@ -148,7 +187,7 @@ fn new_memory(level: u32, r: &mut Rng, now: f64) -> St {
     let mut pawns = vec![];
     while pawns.len() < n { let c = cells[rn(r, cells.len())]; if !pawns.contains(&c) { pawns.push(c); } }
     let look = (0.8 + 0.3 * level.min(24) as f64) * 0.92f64.powi(level.saturating_sub(24) as i32);
-    St::Memory { level, pawns, window, show_until: now + 0.4 + look, found: vec![], next: None }
+    St::Memory { level, pawns, window, show_until: now + 0.4 + look, start: now, found: vec![], found_t: vec![], next: None }
 }
 
 fn new_trail(level: u32, r: &mut Rng, now: f64, route: Option<Vec<Square>>) -> St {
@@ -452,7 +491,7 @@ impl App {
             (Engine::new(&self.engine_path(0), tx, self.ctx.clone()), rx)
         });
         let score = if GAMES[kind].key == "crash" { 100.0 } else { 0.0 };
-        self.game = Some(Run { kind, rng: r, t0: now, limit, hearts: 3, score, over: None, flash: (-10.0, true), pop: -10.0, sel: None, record: false, st, engine, frame: u64::MAX, input: false, bot_t: now + 0.8, inject: None });
+        self.game = Some(Run { kind, rng: r, t0: now, limit, hearts: 3, score, over: None, flash: (-10.0, true), pop: -10.0, sel: None, record: false, st, engine, frame: u64::MAX, input: false, bot_t: now + 0.8, inject: None, slide: None });
     }
 
     /// The run ended: keep the best score and say so when it is a new one.
@@ -485,7 +524,7 @@ impl App {
                 for (k, g) in row.1.iter().enumerate() {
                   ui.scope(|ui| {
                     let i = row.0 * cols + k;
-                    let (slot, resp) = ui.allocate_exact_size(Vec2::new(cw, 150.0), Sense::click());
+                    let (slot, resp) = ui.allocate_exact_size(Vec2::new(cw, 168.0), Sense::click());
                     let hover = motion::hover(ui.ctx(), resp.id, resp.hovered());
                     let (r, alpha) = motion::card(slot, self.page_age(), i, hover); // rises in one after another, lifts on hover
                     if alpha < 1.0 || (hover > 0.0 && hover < 1.0) { ui.ctx().request_repaint(); }
@@ -493,15 +532,20 @@ impl App {
                     let p = ui.painter();
                     p.rect_filled(r, 18.0, PANEL);
                     p.rect_stroke(r, 18.0, Stroke::new(1.0 + hover, Color32::from_rgb(40, 40, 46).lerp_to_gamma(GOLD_LINE, hover)), egui::StrokeKind::Inside);
-                    let tile = Rect::from_min_size(r.min + Vec2::new(16.0, 16.0), Vec2::splat(56.0));
-                    p.rect_filled(tile, 14.0, if g.piece.0 == Color::White { Color32::from_rgb(56, 52, 40) } else { light() });
-                    p.image(self.tex[&g.piece].id(), tile.shrink(6.0), Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
-                    p.text(Pos2::new(tile.right() + 14.0, tile.top() + 6.0), egui::Align2::LEFT_TOP, tl(g.name), f_semi(19.0), CREAM);
+                    // the picture sits on the right, fitted in a square; the text takes the rest
+                    const ART: f32 = 112.0;
+                    let (tid, [tw, th]) = self.art(g.art);
+                    let sc = ART / tw.max(th) as f32;
+                    let img = Rect::from_center_size(Pos2::new(r.right() - 16.0 - ART / 2.0, r.center().y), Vec2::new(tw as f32 * sc, th as f32 * sc));
+                    let p = ui.painter();
+                    p.image(tid, img, Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
+                    let text_w = r.width() - 18.0 - ART - 34.0;
+                    p.text(Pos2::new(r.left() + 18.0, r.top() + 16.0), egui::Align2::LEFT_TOP, tl(g.name), f_semi(19.0), CREAM);
                     let best = self.progress.games.get(g.key).map(|&v| tr!("Recorde: {}", score_text(i, v))).unwrap_or_else(|| tl("Ainda sem recorde").to_string());
-                    p.text(Pos2::new(tile.right() + 14.0, tile.top() + 34.0), egui::Align2::LEFT_TOP, best, egui::FontId::proportional(13.0), if self.progress.games.contains_key(g.key) { GOLD } else { MUTED });
-                    let job = egui::text::LayoutJob::simple(tl(g.blurb).to_string(), egui::FontId::proportional(13.5), TEXT2, r.width() - 32.0);
+                    ui.painter().text(Pos2::new(r.left() + 18.0, r.top() + 42.0), egui::Align2::LEFT_TOP, best, egui::FontId::proportional(13.0), if self.progress.games.contains_key(g.key) { GOLD } else { MUTED });
+                    let job = egui::text::LayoutJob::simple(tl(g.blurb).to_string(), egui::FontId::proportional(13.0), TEXT2, text_w);
                     let gal = ui.fonts_mut(|f| f.layout_job(job));
-                    ui.painter().galley(Pos2::new(r.left() + 16.0, tile.bottom() + 12.0), gal, TEXT2);
+                    ui.painter().galley(Pos2::new(r.left() + 18.0, r.top() + 68.0), gal, TEXT2);
                     if resp.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() { go = Some(i); }
                   });
                 }
@@ -532,7 +576,9 @@ impl App {
         ui.scope_builder(egui::UiBuilder::new().max_rect(panel), |ui| { leave = self.game_panel(ui, panel, &mut run, now); });
         if run.over.is_some() && !was_over { self.end_game(&mut run); }
         if run.over.is_some() && self.game_over_card(ui, board, &mut run, now) { leave = true; }
-        ui.ctx().request_repaint();
+        // frames only as fast as what is moving needs (see repaint_gap)
+        let gap = run.repaint_gap(now);
+        if gap.is_zero() { ui.ctx().request_repaint(); } else { ui.ctx().request_repaint_after(gap); }
         if !leave { if self.game.is_none() { self.game = Some(run); } }
     }
 
@@ -564,6 +610,7 @@ impl App {
                     *reply_at = None;
                     if let Some(m) = sol.get(*i).and_then(|u| UciMove::from_ascii(u.as_bytes()).ok()).and_then(|u| u.to_move(pos).ok()) {
                         *last = m.from().map(|f| (f, dest(&m)));
+                        run.slide = m.from().map(|f| Slide { from: f, to: dest(&m), t0: now, capture: if m.is_capture() && !m.is_en_passant() { pos.board().piece_at(m.to()).map(|pc| (m.to(), pc)) } else { None } });
                         *pos = pos.clone().play(m).unwrap();
                         *i += 1;
                     }
@@ -601,6 +648,7 @@ impl App {
                             if let Some(m) = UciMove::from_ascii(u.as_bytes()).ok().and_then(|x| x.to_move(pos).ok()) {
                                 let crash = hung_capture(pos, &m);
                                 *last = m.from().map(|f| (f, dest(&m)));
+                                run.slide = m.from().map(|f| Slide { from: f, to: dest(&m), t0: now, capture: if m.is_capture() && !m.is_en_passant() { pos.board().piece_at(m.to()).map(|pc| (m.to(), pc)) } else { None } });
                                 *pos = pos.clone().play(m).unwrap();
                                 *plies += 1;
                                 *move_at = now + 0.85;
@@ -639,14 +687,15 @@ impl App {
         let mut ev: Option<bool> = None; // Some(true) right, Some(false) wrong (lose a heart)
         let mut add = 0.0;
         match &mut run.st {
-            St::Memory { level, pawns, show_until, found, next, .. } => if now >= *show_until && next.is_none() {
+            St::Memory { level, pawns, show_until, found, found_t, next, .. } => if now >= *show_until && next.is_none() {
                 if pawns.contains(&sq) {
-                    if !found.contains(&sq) { found.push(sq); }
+                    if !found.contains(&sq) { found.push(sq); found_t.push(now); }
                     if found.len() == pawns.len() { add = 1.0; *level += 1; *next = Some(now + 0.6); ev = Some(true); }
                 } else { ev = Some(false); *next = Some(now + 0.9); }
             },
             St::Trail { level, route, shown_at, dt, input, next } => if now >= *shown_at + *dt * route.len() as f64 + 0.2 && next.is_none() {
                 if route.get(input.len() + 1) == Some(&sq) {
+                    run.slide = Some(Slide { from: input.last().copied().unwrap_or(route[0]), to: sq, t0: now, capture: None });
                     input.push(sq);
                     if input.len() + 1 == route.len() { add = 1.0; *level += 1; *next = Some(now + 0.6); ev = Some(true); }
                 } else {
@@ -678,6 +727,7 @@ impl App {
                             let after = base.clone().play(m.clone()).unwrap();
                             let uci = m.to_uci(CastlingMode::Standard).to_string();
                             *last = Some((s, dest(&m)));
+                            run.slide = Some(Slide { from: s, to: dest(&m), t0: now, capture: if m.is_capture() && !m.is_en_passant() { base.board().piece_at(m.to()).map(|pc| (m.to(), pc)) } else { None } });
                             *pos = after.clone();
                             if after.is_checkmate() { add = 1.0; ev = Some(true); *next = Some(now + 0.7); }
                             else if sol.get(*i) == Some(&uci) { *i += 1; *reply_at = Some(now + 0.35); }
@@ -817,17 +867,45 @@ impl App {
         let ok_c = Color32::from_rgba_unmultiplied(76, 190, 88, 170);
         let bad_c = Color32::from_rgba_unmultiplied(220, 60, 50, 170);
         let mut pieces: Vec<(Square, Piece, f32)> = vec![];
+        let mut adj: Vec<(Square, Vec2, f32)> = vec![]; // per piece: an offset in px and a scale (slides and pops)
         let mut banner: Option<(String, Color32)> = None;
         let mut arrows: Vec<(Square, Square, Color32)> = vec![];
         let board_pieces = |b: &Board| b.occupied().into_iter().map(|s| (s, b.piece_at(s).unwrap(), 1.0)).collect::<Vec<_>>();
         match &run.st {
-            St::Memory { pawns, window, show_until, found, next, .. } => {
+            St::Memory { pawns, window, show_until, start, found, found_t, next, .. } => {
+                let pawn = Piece { color: Color::White, role: Role::Pawn };
                 for sq in Bitboard::FULL { if !window.contains(sq) { tint(sq, Color32::from_black_alpha(120)); } }
                 for &sq in found { tint(sq, ok_c); }
-                if now < *show_until { for &sq in pawns { pieces.push((sq, Piece { color: Color::White, role: Role::Pawn }, 1.0)); } banner = Some((tl("Memoriza!").into(), GOLD)); }
-                else if next.is_some() && run.flash.1 { banner = Some((tl("Certo!").into(), GREEN)); }
-                else if next.is_some() { for &sq in pawns { pieces.push((sq, Piece { color: Color::White, role: Role::Pawn }, 0.55)); } }
-                else { banner = Some((if pawns.len() == 1 { tl("Encontra o peão").to_string() } else { tr!("Encontra os {} peões", pawns.len()) }, CREAM)); }
+                // a gold border round the lit window; it glides to where the next level's window is
+                let (mut f0, mut f1, mut r0, mut r1) = (7u32, 0u32, 7u32, 0u32);
+                for sq in *window { let (f, k) = coords(sq); f0 = f0.min(f); f1 = f1.max(f); r0 = r0.min(k); r1 = r1.max(k); }
+                let win = rect_of(sq_at(f0, r0)).union(rect_of(sq_at(f1, r1)));
+                let rel = |v: f32| (v - 0.0) / cell;
+                let ctx = ui.ctx();
+                let (x0, y0) = (motion::glide(ctx, egui::Id::new("memwin_x0"), rel(win.left() - board.left()), 0.3), motion::glide(ctx, egui::Id::new("memwin_y0"), rel(win.top() - board.top()), 0.3));
+                let (x1, y1) = (motion::glide(ctx, egui::Id::new("memwin_x1"), rel(win.right() - board.left()), 0.3), motion::glide(ctx, egui::Id::new("memwin_y1"), rel(win.bottom() - board.top()), 0.3));
+                let frame = Rect::from_min_max(board.min + Vec2::new(x0, y0) * cell, board.min + Vec2::new(x1, y1) * cell);
+                p.rect_stroke(frame.expand(7.0), 9.0, Stroke::new(8.0, GOLD.gamma_multiply(0.10)), egui::StrokeKind::Outside);
+                p.rect_stroke(frame.expand(3.0), 5.0, Stroke::new(3.0, GOLD.gamma_multiply(0.95)), egui::StrokeKind::Outside);
+                if now < *show_until {
+                    // the pawns pop in one after another (82% -> 100% and fade in), then fade out when the time is up
+                    for (i, &sq) in pawns.iter().enumerate() {
+                        let k = motion::ease_out(((now - *start - 0.18 - i as f64 * 0.04) / 0.2) as f32);
+                        pieces.push((sq, pawn, k)); adj.push((sq, Vec2::ZERO, 0.82 + 0.18 * k));
+                    }
+                    banner = Some((tl("Memoriza!").into(), GOLD));
+                } else {
+                    let f = motion::ease_out(((now - *show_until) / 0.18) as f32);
+                    if f < 1.0 { for &sq in pawns { pieces.push((sq, pawn, 1.0 - f)); } }
+                    // each pawn found pops back in
+                    for (&sq, &ft) in found.iter().zip(found_t) {
+                        let k = motion::ease_out(((now - ft) / 0.18) as f32);
+                        pieces.push((sq, pawn, k)); adj.push((sq, Vec2::ZERO, 0.82 + 0.18 * k));
+                    }
+                    if next.is_some() && run.flash.1 { banner = Some((tl("Certo!").into(), GREEN)); }
+                    else if next.is_some() { for &sq in pawns { if !found.contains(&sq) { pieces.push((sq, pawn, 0.55)); } } }
+                    else { banner = Some((if pawns.len() == 1 { tl("Encontra o peão").to_string() } else { tr!("Encontra os {} peões", pawns.len()) }, CREAM)); }
+                }
             }
             St::Trail { route, shown_at, dt, input, .. } => {
                 let showing = now < *shown_at + *dt * route.len() as f64 + 0.2;
@@ -840,7 +918,12 @@ impl App {
                 let here = *path.last().unwrap();
                 tint(route[0], hl);
                 pieces.push((here, Piece { color: Color::White, role: Role::Knight }, 1.0));
-                banner = Some(if showing { (tl("Observa o caminho").into(), GOLD) } else { (tr!("Salto {} de {}", input.len() + 1, route.len() - 1), CREAM) });
+                if showing && at > 0 && now >= *shown_at {
+                    // the knight glides from the last square to this one in the first 70% of each step
+                    let k = motion::ease_out((((now - *shown_at) - at as f64 * *dt) / (*dt * 0.7)) as f32);
+                    if motion::on() { adj.push((route[at], (rect_of(route[at - 1]).min - rect_of(route[at]).min) * (1.0 - k), 1.0)); }
+                }
+                banner = Some(if showing { (tl("Observa o caminho").into(), GOLD) } else { (tr!("Salto {} de {}", (input.len() + 1).min(route.len() - 1), route.len() - 1), CREAM) });
             }
             St::Blind { start, moves, end, phase, t, dt, quest, right, level } => {
                 match phase {
@@ -879,6 +962,7 @@ impl App {
             St::Check { round, pos, checker, t, times, wrong_at } => {
                 if now >= *t || (times.len() as u32) >= *round {
                     pieces = board_pieces(pos.board());
+                    if (times.len() as u32) < *round { let k = motion::ease_out(((now - *t) / 0.15) as f32); for pc in pieces.iter_mut() { pc.2 = k; } } // the new position fades in
                     if let Some(k) = pos.board().king_of(pos.turn()) { p.circle_filled(rect_of(k).center(), cell * 0.5, Color32::from_rgba_unmultiplied(230, 0, 0, 120)); }
                     if (times.len() as u32) >= *round {
                         tint(*checker, ok_c);
@@ -912,6 +996,7 @@ impl App {
             }
             St::Legal { pos, from, to, legal, t, limit, answered } => {
                 pieces = board_pieces(pos.board());
+                { let k = motion::ease_out(((now - *t) / 0.15) as f32); for pc in pieces.iter_mut() { pc.2 = k; } } // the new position fades in
                 let col = match answered { None => Color32::from_rgba_unmultiplied(255, 170, 0, 215), Some(_) => if *legal { Color32::from_rgba_unmultiplied(60, 170, 70, 225) } else { Color32::from_rgba_unmultiplied(210, 60, 50, 225) } };
                 arrows.push((*from, *to, col));
                 let frac = if answered.is_some() { 0.0 } else { (1.0 - (now - *t) / *limit).clamp(0.0, 1.0) as f32 };
@@ -941,7 +1026,20 @@ impl App {
         if let St::Mines { wrong, .. } = &run.st {
             for s in *wrong { let c = rect_of(s).center(); let d = cell * 0.18; for (a, b) in [(Vec2::new(-d, -d), Vec2::new(d, d)), (Vec2::new(-d, d), Vec2::new(d, -d))] { p.line_segment([c + a, c + b], Stroke::new(3.0, Color32::WHITE)); } }
         }
-        for (sq, pc, a) in pieces { self.draw_pc(&p, rect_of(sq), pc, a); }
+        // the last move slides (a captured piece fades out underneath it)
+        let mut captured = None;
+        if let (Some(sl), true) = (run.slide, motion::on()) {
+            let k = ((now - sl.t0) / slide_secs()) as f32;
+            if k < 1.0 {
+                let e = motion::ease_out(k);
+                adj.push((sl.to, (rect_of(sl.from).min - rect_of(sl.to).min) * (1.0 - e), 1.0));
+                if let Some((csq, cpc)) = sl.capture { pieces.insert(0, (csq, cpc, 1.0 - e)); captured = Some(0); }
+            }
+        }
+        for (idx, (sq, pc, a)) in pieces.into_iter().enumerate() {
+            let (off, sc) = if Some(idx) == captured { (Vec2::ZERO, 1.0) } else { adj.iter().rev().find(|x| x.0 == sq).map_or((Vec2::ZERO, 1.0), |x| (x.1, x.2)) };
+            self.draw_pc(&p, rect_of(sq).translate(off).scale_from_center(sc), pc, a);
+        }
         for (a, b, c) in arrows {
             let df = (u32::from(a.file()) as i32 - u32::from(b.file()) as i32).abs();
             let dr = (u32::from(a.rank()) as i32 - u32::from(b.rank()) as i32).abs();
@@ -1072,12 +1170,18 @@ impl App {
         let inner = rect.shrink(20.0);
         let info = &GAMES[run.kind];
         let mut leave = false;
+        let art = self.art(info.art);
         let ok = run.input; // egui may draw a frame twice: act on its input once
         ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| {
             ui.horizontal(|ui| {
                 if icon_btn(ui, Ico::ChevL, 38.0, false, tl("Voltar aos jogos")) { leave = ok; }
                 ui.add_space(4.0);
                 ui.label(semi(tl(info.name), 24.0));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let (rect, _) = ui.allocate_exact_size(Vec2::splat(56.0), Sense::hover());
+                    let sc = 56.0 / art.1[0].max(art.1[1]) as f32;
+                    ui.painter().image(art.0, Rect::from_center_size(rect.center(), Vec2::new(art.1[0] as f32 * sc, art.1[1] as f32 * sc)), Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
+                });
             });
             ui.add_space(6.0);
             ui.add(egui::Label::new(egui::RichText::new(tl(info.blurb)).size(14.0).color(TEXT2)).wrap());

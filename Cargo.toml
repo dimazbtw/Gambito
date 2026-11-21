@@ -1,6 +1,6 @@
 [package]
 name = "gambito"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2024"
 description = "Tabuleiro de xadrez para treinar e analisar, com várias engines, sugestões explicadas e avaliação de partidas"
 license = "GPL-3.0-or-later"

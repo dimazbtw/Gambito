@@ -48,8 +48,8 @@ pub fn enter(age: f64, delay: f64, dur: f64) -> f32 {
 pub fn enter_end(index: usize, dur: f64) -> f64 { index as f64 * STAGGER + dur }
 
 /// Delay between the items of a group (30-80 ms feels right; longer feels slow).
-pub const STAGGER: f64 = 0.05;
-pub const ENTER_SECS: f64 = 0.28;
+pub const STAGGER: f64 = 0.04;
+pub const ENTER_SECS: f64 = 0.22;
 
 /// A pressed control shrinks a little (scale 0.97 in 120 ms), like a real button. Returns the factor to draw with.
 pub fn press(ctx: &egui::Context, resp: &egui::Response) -> f32 {
@@ -64,11 +64,36 @@ pub fn hover(ctx: &egui::Context, id: egui::Id, hovered: bool) -> f32 {
     ctx.animate_bool_with_time_and_easing(id.with("hover"), hovered, 0.15, egui::emath::easing::quadratic_out)
 }
 
-/// Where a card is drawn: its slot, lifted when hovered and risen into place during its entrance.
+/// Where a card is drawn: its slot, risen into place during its entrance (only the first time a screen is opened in
+/// a session, see `App::page_age`). Hovering changes colour only: it is done tens of times a day, so no lift.
 /// Returns (rect, opacity).
-pub fn card(slot: Rect, age: f64, index: usize, hover: f32) -> (Rect, f32) {
+pub fn card(slot: Rect, age: f64, index: usize, _hover: f32) -> (Rect, f32) {
     let k = enter(age, index as f64 * STAGGER, ENTER_SECS);
-    (slot.translate(Vec2::new(0.0, (1.0 - k) * 12.0 - 3.0 * hover)), k)
+    (slot.translate(Vec2::new(0.0, (1.0 - k) * 10.0)), k)
+}
+
+/// A strong ease-in-out (like cubic-bezier(0.77, 0, 0.175, 1)): for things that move across the screen.
+pub fn ease_in_out(t: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    if t < 0.5 { 8.0 * t.powi(4) } else { 1.0 - (-2.0 * t + 2.0).powi(4) / 2.0 }
+}
+
+/// A value that glides to its target with an ease-in-out (egui's own animate_value is linear). Retargets from where
+/// it is, so it is safe to change the target in the middle of a move. Instant when animations are off.
+pub fn glide(ctx: &egui::Context, id: egui::Id, target: f32, secs: f32) -> f32 {
+    if !on() { return target; }
+    let now = ctx.input(|i| i.time);
+    let (from, to, t0) = ctx.data_mut(|d| d.get_temp::<(f32, f32, f64)>(id)).unwrap_or((target, target, now));
+    let at = |f: f32, to: f32, t0: f64| { let k = ((now - t0) as f32 / secs).clamp(0.0, 1.0); (f + (to - f) * ease_in_out(k), k) };
+    let (mut from, mut to, mut t0) = (from, to, t0);
+    if (to - target).abs() > f32::EPSILON {
+        let (cur, _) = at(from, to, t0);
+        (from, to, t0) = (cur, target, now);
+    }
+    ctx.data_mut(|d| d.insert_temp(id, (from, to, t0)));
+    let (v, k) = at(from, to, t0);
+    if k < 1.0 { ctx.request_repaint(); }
+    v
 }
 
 /// A number that counts up when its screen appears (ease-out, `delay` after it).
@@ -110,6 +135,7 @@ mod tests {
         for f in [ease_out, ease_out_back] { assert!(f(0.0).abs() < 1e-6 && (f(1.0) - 1.0).abs() < 1e-6); }
         assert!(ease_out(0.2) > 0.5, "an ease-out is already well along at 20%");
         assert!(ease_out_back(0.6) > 1.0, "the back curve overshoots");
+        assert!(ease_in_out(0.25) < 0.25 && ease_in_out(0.75) > 0.75 && (ease_in_out(0.5) - 0.5).abs() < 1e-6, "slow-fast-slow");
     }
 
     #[test]
@@ -118,7 +144,7 @@ mod tests {
         assert_eq!(enter(0.0, 0.1, 0.28), 0.0);
         assert!(enter(0.2, 0.1, 0.28) > 0.0 && enter(0.2, 0.1, 0.28) < 1.0);
         assert_eq!(enter(1.0, 0.1, 0.28), 1.0);
-        assert!(enter_end(3, ENTER_SECS) < 0.5, "a four-card group is done in under half a second");
+        assert!(enter_end(3, ENTER_SECS) < 0.4, "a four-card group is done in under 0.4 s");
         assert_eq!(count(5.0, 0.0, 1197.0), 1197.0);
     }
 }

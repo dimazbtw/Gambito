@@ -301,6 +301,8 @@ struct App {
     promo: Option<(Square, Square)>, // a promotion waiting for the piece to be picked
     resigned: bool,            // I gave up the game against the engine
     check_t: (usize, f64),     // the position whose check was last pulsed, and when
+    seen_tabs: u16,            // screens already opened this session (their entrance plays only the first time)
+    replay: bool,              // the current screen is on its first visit
     my_games: Vec<pgn::Game>,  // games played here against the engine (games.pgn), oldest first
     brush: Option<Option<shakmaty::Piece>>, // board editor: None = off, Some(None) = eraser, Some(Some(p)) = place p
     mode: Mode,
@@ -345,7 +347,7 @@ impl App {
             analyst: Engine::heavy(&exe, tx.clone(), ctx.clone()),
             tx, ctx, engines, opp: 0, ana: 0, time: 0.0, anim: None, badge_t: (usize::MAX, 0.0), hints_t0: 0.0, skip_anim: false,
             rx, tex, tpl: None, import: None, brush: None, loaded: None, pgn_text: String::new(), pgn_games: vec![], cc_user: String::new(), cc_query: String::new(),
-            cc_games: vec![], cc_archives: vec![], cc_loaded: 0, cc_busy: false, cc_err: String::new(), cc_site: 0, tab_t: (u8::MAX, 0.0), net_tx, net_rx, marks: vec![], mark_from: None, promo: None, resigned: false, check_t: (usize::MAX, 0.0), my_games: load_my_games(),
+            cc_games: vec![], cc_archives: vec![], cc_loaded: 0, cc_busy: false, cc_err: String::new(), cc_site: 0, tab_t: (u8::MAX, 0.0), net_tx, net_rx, marks: vec![], mark_from: None, promo: None, resigned: false, check_t: (usize::MAX, 0.0), seen_tabs: 0, replay: true, my_games: load_my_games(),
             mode: Mode::Free, snapshot: None, puzzles: timed("puzzles", train::load_puzzles), progress: train::Progress::load(), rng: train::Rng::new(), pz_theme: None, lesson: None,
         };
         app.tab = 5; // opens on Início
@@ -1302,6 +1304,7 @@ impl eframe::App for App {
         if r { self.goto(cur + 1); }
         if h { self.goto(0); }
         if e { self.goto(usize::MAX); }
+        if l || r || h || e { self.anim = None; } // keyboard stepping is done hundreds of times: no slide
         if !ctx.egui_wants_keyboard_input() { // inside a text box, Ctrl+V is just text
             if let Some(im) = paste_img {
                 let [w, h] = im.size;
@@ -1520,7 +1523,7 @@ fn dark_btn(ui: &mut egui::Ui, label: &str, icon: Option<Ico>, size: Vec2, outli
 fn toggle(ui: &mut egui::Ui, on: &mut bool) -> bool {
     let (rect, resp) = ui.allocate_exact_size(Vec2::new(46.0, 26.0), Sense::click());
     if resp.clicked() { *on = !*on; }
-    let t = ui.ctx().animate_bool_with_time(resp.id, *on, 0.15);
+    let t = if motion::on() { ui.ctx().animate_bool_with_time_and_easing(resp.id, *on, 0.15, egui::emath::easing::quadratic_out) } else if *on { 1.0 } else { 0.0 };
     let p = ui.painter();
     p.rect_filled(rect, 13.0, Color32::from_rgb(52, 52, 58).lerp_to_gamma(GOLD, t));
     if resp.hovered() { p.rect_stroke(rect, 13.0, Stroke::new(1.0, GOLD_HI), egui::StrokeKind::Outside); }
