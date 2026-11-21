@@ -1,18 +1,32 @@
 //! Plain-language reasons for a move: "O bispo dá xeque e ameaça a dama."
 //! Built from simple board facts (checks, captures, new threats, discovered attacks, safety), not from engine lines.
+use crate::i18n::tl;
 use shakmaty::{san::SanPlus, Board, Chess, Color, Move, Position, Role, Square};
 
-pub fn role_name(r: Role) -> &'static str {
-    match r { Role::Pawn => "peão", Role::Knight => "cavalo", Role::Bishop => "bispo", Role::Rook => "torre", Role::Queen => "dama", Role::King => "rei" }
+// The sentences are built from pieces, so the grammar of each language lives here:
+// Portuguese has articles with gender ("o bispo", "a dama", "do bispo"), English just "the bishop".
+fn english() -> bool { crate::i18n::lang() == 1 }
+
+fn role_name(r: Role) -> &'static str {
+    match (english(), r) {
+        (false, Role::Pawn) => "peão", (false, Role::Knight) => "cavalo", (false, Role::Bishop) => "bispo",
+        (false, Role::Rook) => "torre", (false, Role::Queen) => "dama", (false, Role::King) => "rei",
+        (true, Role::Pawn) => "pawn", (true, Role::Knight) => "knight", (true, Role::Bishop) => "bishop",
+        (true, Role::Rook) => "rook", (true, Role::Queen) => "queen", (true, Role::King) => "king",
+    }
 }
 pub fn val(r: Role) -> u32 {
     match r { Role::Pawn => 1, Role::Knight | Role::Bishop => 3, Role::Rook => 5, Role::Queen => 9, Role::King => 100 }
 }
 fn fem(r: Role) -> bool { matches!(r, Role::Rook | Role::Queen) }
-/// "o bispo" / "a dama"
-fn the(r: Role) -> String { format!("{} {}", if fem(r) { "a" } else { "o" }, role_name(r)) }
-/// "do bispo" / "da dama"
-fn of(r: Role) -> String { format!("{} {}", if fem(r) { "da" } else { "do" }, role_name(r)) }
+/// "o bispo" / "a dama" / "the bishop"
+fn the(r: Role) -> String {
+    if english() { format!("the {}", role_name(r)) } else { format!("{} {}", if fem(r) { "a" } else { "o" }, role_name(r)) }
+}
+/// "do bispo" / "da dama" / "the bishop"
+fn of(r: Role) -> String {
+    if english() { format!("the {}", role_name(r)) } else { format!("{} {}", if fem(r) { "da" } else { "do" }, role_name(r)) }
+}
 fn cap(s: &str) -> String {
     let mut c = s.chars();
     c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default()
@@ -22,7 +36,7 @@ fn join(v: &[String]) -> String {
     match v.len() {
         0 => String::new(),
         1 => v[0].clone(),
-        n => format!("{} e {}", v[..n - 1].join(", "), v[n - 1]),
+        n => format!("{} {} {}", v[..n - 1].join(", "), if english() { "and" } else { "e" }, v[n - 1]),
     }
 }
 
@@ -79,25 +93,25 @@ pub fn explain(pos: &Chess, mv: &Move) -> (String, String, Chess) {
     let mut positional: Vec<String> = vec![];
 
     if after.is_checkmate() {
-        acts.push("dá xeque-mate".into());
+        acts.push(tl("dá xeque-mate").into());
     } else {
-        if after.is_check() { acts.push("dá xeque".into()); }
-        if mv.is_castle() { acts.push("põe o rei em segurança e ativa a torre".into()); }
+        if after.is_check() { acts.push(tl("dá xeque").into()); }
+        if mv.is_castle() { acts.push(tl("põe o rei em segurança e ativa a torre").into()); }
         if let Some(c) = mv.capture() {
             let safe = after_b.attacks_to(to, !mover, after_b.occupied()).is_empty();
-            acts.push(format!("captura {}{}", the(c), if safe && val(c) > 1 { " sem risco" } else { "" }));
+            acts.push(if safe && val(c) > 1 { tr!("captura {} sem risco", the(c)) } else { tr!("captura {}", the(c)) });
         }
-        if mv.promotion().is_some() { acts.push("promove-se a dama".into()); }
+        if mv.promotion().is_some() { acts.push(tl("promove-se a dama").into()); }
 
         // new threats by the moved piece
         let mine: Vec<Role> = threats(after_b, mover).into_iter().filter(|t| t.0 == to).map(|t| t.2).collect();
         let mut uniq: Vec<Role> = vec![];
         for r in mine { if !uniq.contains(&r) { uniq.push(r); } }
         if uniq.len() >= 2 {
-            acts.push(format!("ataca {} ao mesmo tempo (um garfo)", join(&uniq.iter().map(|r| the(*r)).collect::<Vec<_>>())));
+            acts.push(tr!("ataca {} ao mesmo tempo (um garfo)", join(&uniq.iter().map(|r| the(*r)).collect::<Vec<_>>())));
         } else if let Some(r) = uniq.first() {
             // not worth a mention when the piece just captured it
-            if mv.capture() != Some(*r) { acts.push(format!("ameaça {}", the(*r))); }
+            if mv.capture() != Some(*r) { acts.push(tr!("ameaça {}", the(*r))); }
         }
 
         // discovered attacks: new threats by other pieces
@@ -105,7 +119,7 @@ pub fn explain(pos: &Chess, mv: &Move) -> (String, String, Chess) {
         for (a, t, tr) in threats(after_b, mover).into_iter().filter(|x| x.0 != to) {
             if !before_t.iter().any(|b| b.0 == a && b.1 == t) {
                 if let Some(ap) = after_b.piece_at(a) {
-                    notes.push(format!("Descobre um ataque {} sobre {}.", of(ap.role), the(tr)));
+                    notes.push(tr!("Descobre um ataque {} sobre {}.", of(ap.role), the(tr)));
                     break;
                 }
             }
@@ -114,36 +128,36 @@ pub fn explain(pos: &Chess, mv: &Move) -> (String, String, Chess) {
         // safety
         let (hb, ha) = (hanging(before_b, mover), hanging(after_b, mover));
         if let Some(from) = mv.from() {
-            if hb.iter().any(|h| h.0 == from) && !ha.iter().any(|h| h.0 == to) { acts.push("tira-se de um ataque".into()); }
+            if hb.iter().any(|h| h.0 == from) && !ha.iter().any(|h| h.0 == to) { acts.push(tl("tira-se de um ataque").into()); }
         }
         for (s, r) in &hb {
             if Some(*s) != mv.from() && !ha.iter().any(|h| h.0 == *s) {
-                notes.push(format!("Protege {} que estava ameaçad{}.", the(*r), if fem(*r) { "a" } else { "o" }));
+                notes.push(if fem(*r) { tr!("Protege {} que estava ameaçada.", the(*r)) } else { tr!("Protege {} que estava ameaçado.", the(*r)) });
                 break;
             }
         }
         if crate::is_sacrifice(pos, mv) {
-            notes.push("É um sacrifício de material que compensa pela posição que fica.".into());
+            notes.push(tl("É um sacrifício de material que compensa pela posição que fica.").into());
         } else if mv.capture().is_none() && ha.iter().any(|h| h.0 == to) {
-            notes.push(format!("Atenção: {} fica exposto a um ataque.", the(piece)));
+            notes.push(if fem(piece) { tr!("Atenção: {} fica exposta a um ataque.", the(piece)) } else { tr!("Atenção: {} fica exposto a um ataque.", the(piece)) });
         }
 
         if matches!(piece, Role::Knight | Role::Bishop) {
             let home = if mover == Color::White { shakmaty::Rank::First } else { shakmaty::Rank::Eighth };
-            if mv.from().map_or(false, |f| f.rank() == home) { positional.push(format!("desenvolve {}", the(piece))); }
+            if mv.from().map_or(false, |f| f.rank() == home) { positional.push(tr!("desenvolve {}", the(piece))); }
         }
-        if [Square::D4, Square::E4, Square::D5, Square::E5].contains(&to) { positional.push("ocupa o centro".into()); }
+        if [Square::D4, Square::E4, Square::D5, Square::E5].contains(&to) { positional.push(tl("ocupa o centro").into()); }
     }
 
     let subject = cap(&the(piece));
     let mut sentences: Vec<String> = vec![];
     if !acts.is_empty() {
         sentences.push(format!("{} {}.", subject, join(&acts)));
-        if !positional.is_empty() { sentences.push(format!("Também {}.", join(&positional))); }
+        if !positional.is_empty() { sentences.push(tr!("Também {}.", join(&positional))); }
     } else if !positional.is_empty() {
         sentences.push(format!("{}.", cap(&join(&positional))));
     } else if notes.is_empty() {
-        sentences.push(format!("{} melhora a posição das peças.", subject));
+        sentences.push(tr!("{} melhora a posição das peças.", subject));
     }
     sentences.extend(notes);
     (san, sentences.join(" "), after)

@@ -1,0 +1,648 @@
+ (xeque!)	 (check!)
+(Ajustei de quem é a vez para a posição ser legal.)	(I changed whose turn it is so the position is legal.)
+(profundidade {})	(depth {})
+(profundidade máx.)	(max depth)
++{} de material	+{} material
+1. Ocupa o centro com peões (e4, d4).\n2. Desenvolve cavalos e bispos antes de mexer a dama.\n3. Faz o roque cedo para pôr o rei em segurança.\n4. Não mexas a mesma peça duas vezes sem razão.\n5. Liga as torres.\n\nDepois pratica com puzzles da abertura: armadilhas e táticas que aparecem logo nos primeiros lances.	1. Take the centre with pawns (e4, d4).\n2. Develop knights and bishops before moving the queen.\n3. Castle early to put the king in safety.\n4. Don't move the same piece twice without a reason.\n5. Connect the rooks.\n\nThen practise with opening puzzles: traps and tactics that show up in the first few moves.
+A analisar…	Analysing…
+A avaliar a partida…	Reviewing the game…
+A avaliar…	Reviewing…
+A buscar partidas…	Fetching games…
+A engine "{}" parou ou não é UCI. Voltei ao {}.	The engine "{}" stopped or is not UCI. Switched back to {}.
+A engine defende o melhor que sabe.	The engine defends as well as it can.
+A engine está a pensar…	The engine is thinking…
+A posição lida não é legal: {}. Corrige as peças com o editor ou muda a vez.	The position read is not legal: {}. Fix the pieces with the editor or change whose turn it is.
+A torre corta o rei numa fila ou coluna, como uma parede. O teu rei aproxima-se de frente ao outro (oposição), e então um xeque de torre empurra-o uma fila para trás. Repete até à borda e dá mate.\n\nSe o rei adversário atacar a torre, afasta-a para o outro lado do tabuleiro.	The rook cuts the king off on a rank or file, like a wall. Your king walks up face to face with the other one (opposition), and then a rook check pushes it back one rank. Repeat until the edge and mate.\n\nIf the enemy king attacks the rook, move it away to the other side of the board.
+A tua vez	Your move
+Abertura	Opening
+Aberturas	Openings
+Abrir	Open
+Abrir ficheiro…	Open file…
+Abrir imagem…	Open image…
+Abrir lição	Open lesson
+Adicionar engine UCI…	Add UCI engine…
+Adversário	Opponent
+Afogamento: o rei não tinha lances e não estava em xeque. Deixa-lhe sempre uma casa até ao mate.	Stalemate: the king had no moves and was not in check. Always leave it a square until the mate.
+Ainda não há avaliação desta partida.	This game has not been reviewed yet.
+Ainda sem lances.	No moves yet.
+Ajuda	Help
+Analisar	Analyse
+Analisar partidas	Analyse games
+Antes de cada lance, faz duas perguntas: o que é que o adversário deixou sem defesa? E o que é que eu deixei? Uma peça atacada e sem defensores pode simplesmente ser comida.\n\nNo exemplo, o bispo em e6 não tem quem o defenda: Cxe6.	Before every move, ask two questions: what did my opponent leave undefended? And what did I? An attacked piece with no defenders can simply be taken.\n\nIn the example, the bishop on e6 has no defender: Nxe6.
+Análise da partida	Game review
+Análise livre	Free analysis
+Aprender	Learn
+Aprender estas peças	Learn these pieces
+Aprendi {} peças deste print. Os próximos prints com este estilo devem sair melhores.	I learned {} pieces from this screenshot. The next screenshots in this style should read better.
+Ataque ao roque	Kingside attack
+Ataque descoberto	Discovered attack
+Ataque na ala da dama	Queenside attack
+Atenção: {} fica exposta a um ataque.	Careful: {} is left open to an attack.
+Atenção: {} fica exposto a um ataque.	Careful: {} is left open to an attack.
+Atrais uma peça do adversário, muitas vezes o rei, para uma casa má, quase sempre com um sacrifício. Lá, ela fica sujeita a um garfo, a uma cravada ou a mate.	You lure an enemy piece, often the king, onto a bad square, almost always with a sacrifice. There it falls to a fork, a pin or mate.
+Atração	Attraction
+Avaliar partida	Review game
+Avaliação ao longo da partida	Evaluation over the game
+Boa	Good
+Boa. O rating sobe.	Nice. Your rating goes up.
+Borracha	Eraser
+Brancas	White
+Brancas estão em cima no print	White is at the top of the screenshot
+Brancas ganham	White wins
+Brancas · precisão	White · accuracy
+Brilhante	Brilliant
+Carregar	Load
+Certo! Continua.	Correct! Keep going.
+Chegaste lá, mas não conta como resolvido à primeira.	You got there, but it doesn't count as solved first time.
+Cola aqui o PGN (de qualquer site)…	Paste the PGN here (from any site)…
+Colar print ou PGN	Paste screenshot or PGN
+Com a dama, empurra o rei adversário para a borda: põe-na a um salto de cavalo dele e vai seguindo-o. Quando ele estiver na borda, traz o teu rei e dá mate.\n\nCuidado com o afogamento: se o rei adversário não tiver nenhum lance e não estiver em xeque, é empate. Deixa-lhe sempre uma casa até dares o mate.	With the queen, push the enemy king to the edge: keep her a knight's jump away from it and follow it. Once it is on the edge, bring your king over and mate.\n\nWatch out for stalemate: if the enemy king has no move and is not in check, it is a draw. Always leave it a square until you mate.
+Com dica ou solução, o puzzle não conta como resolvido.	With a hint or the solution, the puzzle doesn't count as solved.
+Começar	Start
+Concluir	Done
+Concluída	Done
+Conseguiste!	You did it!
+Continua de onde paraste	Pick up where you left off
+Contra a engine, com o Elo que quiseres, e as 3 melhores jogadas explicadas.	Against the engine, at any Elo you like, with the 3 best moves explained.
+Copiar	Copy
+Copiar a partida (PGN)	Copy the game (PGN)
+Corrigir posição	Fix position
+Cravada	Pin
+Ctrl+V, arrastar a imagem para a janela, ou:	Ctrl+V, drag the image onto the window, or:
+Curto	Short
+D	L
+Defesa	Defence
+Defesa máxima	Full-strength defence
+Definições	Settings
+Definições (engines, Elo)	Settings (engines, Elo)
+Descobre um ataque {} sobre {}.	It uncovers an attack by {} on {}.
+Desfazer	Undo
+Desobstrução	Clearance
+Desvio	Deflection
+Dica	Hint
+Dois lances para o mate. Muitas vezes o primeiro é um xeque ou um sacrifício que tira a última casa de fuga ao rei. Pensa em todas as respostas do adversário antes de jogar.	Two moves to mate. The first is often a check or a sacrifice that takes away the king's last escape square. Think through every reply before you move.
+Duas peças dão xeque ao mesmo tempo. Não há bloqueio nem captura que resolva os dois xeques: o rei é obrigado a fugir. É o ataque descoberto mais forte que existe.\n\nNo exemplo, Cf6+ dá xeque com o cavalo e, ao mesmo tempo, abre a coluna e para a torre.	Two pieces give check at once. No block or capture can answer both checks: the king has to run. It is the strongest discovered attack there is.\n\nIn the example, Nf6+ gives check with the knight and at the same time opens the e-file for the rook.
+E	D
+Editar tabuleiro	Edit board
+Editor aberto: escolhe uma peça e clica nas casas.	Editor open: pick a piece and click the squares.
+Eliminar o defensor	Capturing the defender
+Elo das sugestões	Suggestion strength (Elo)
+Elo: {}	Elo: {}
+Em breve	Coming soon
+Empate	Draw
+Empate.	Draw.
+En passant	En passant
+Encontra o melhor lance.	Find the best move.
+Encontra o próximo lance das brancas.	Find White's next move.
+Encontra o próximo lance das pretas.	Find Black's next move.
+Engine "{}" adicionada e escolhida como adversária.	Engine "{}" added and chosen as the opponent.
+Erro	Mistake
+Escolhe uma peça (ou a borracha) e clica nas casas do tabuleiro.	Pick a piece (or the eraser) and click the squares on the board.
+Escreve o nome de utilizador.	Type the username.
+Espeto	Skewer
+Esta partida não tem lances.	This game has no moves.
+Este utilizador não tem partidas públicas.	This user has no public games.
+Eu digo o que ele faz e qual era o melhor.	I'll tell you what it does and what the best one was.
+Excelente	Excellent
+Exercícios	Puzzles
+FEN inválido: {}	Invalid FEN: {}
+Fechar editor	Close editor
+Fica para a próxima	Next time
+Finais	Endgames
+Final	Endgame
+Final de bispos	Bishop endgame
+Final de cavalos	Knight endgame
+Final de damas	Queen endgame
+Final de peões	Pawn endgame
+Final de torres	Rook endgame
+Gafe	Blunder
+Garfo	Fork
+Guarda o aspeto das peças deste print (já corrigido) para ler melhor os próximos.	Saves how the pieces in this (corrected) screenshot look, to read the next ones better.
+Hoje não saiu. Podes rever a solução.	Not solved today. You can review the solution.
+Igualar	Equality
+Imagem	Image
+Importar imagem	Import image
+Imprecisão	Inaccuracy
+Interferência	Interference
+Início	Home
+Joga contra a engine até promoveres o peão.	Play against the engine until you promote the pawn.
+Joga contra a engine, que defende o melhor que sabe, até dares mate.	Play against the engine, which defends as well as it can, until you mate.
+Joga um lance.	Make a move.
+Jogar	Play
+Jogar os dois lados (sem engine)	Play both sides (no engine)
+Jogas com as brancas	You play White
+Jogas com as pretas	You play Black
+Já não há material para ganhar.	There is no longer enough material to win.
+Já tinhas feito este puzzle: não conta para o rating.	You had done this puzzle before: it doesn't count for your rating.
+Lance calmo	Quiet move
+Lance intermédio	Intermezzo
+Lance {} · Elo {}	Move {} · Elo {}
+Lances	Moves
+Lances a rever	Moves to review
+Lição concluída.	Lesson complete.
+Lições	Lessons
+Lições concluídas	Lessons completed
+Longo	Long
+Lê a ideia, vê o exemplo e pratica.	Read the idea, see the example and practise.
+Lê a ideia, vê o exemplo e pratica. {} de {} lições concluídas.	Read the idea, see the example and practise. {} of {} lessons completed.
+Língua	Language
+Mais antigas	Older
+Mais opções	More options
+Mais uma dica	Another hint
+Mate	Mate
+Mate abafado	Smothered mate
+Mate da cauda de andorinha	Dovetail mate
+Mate de Anastácia	Anastasia's mate
+Mate de Boden	Boden's mate
+Mate do gancho	Hook mate
+Mate dos dois bispos	Double bishop mate
+Mate em 1	Mate in 1
+Mate em 2	Mate in 2
+Mate em 3	Mate in 3
+Mate em 4	Mate in 4
+Mate forçado em 1 lance.	Forced mate in 1 move.
+Mate forçado em {} lances.	Forced mate in {} moves.
+Mate na última fila	Back-rank mate
+Mate árabe	Arabian mate
+Mates	Mates
+Meio-jogo	Middlegame
+Melhor jogada	Best move
+Melhor série seguida	Best streak
+Mexes uma peça e abres a linha de outra que estava atrás dela. Ficam duas ameaças num só lance: a da peça que se mexeu e a da que ficou a descoberto.\n\nNo exemplo, o bispo come a dama em a8 e, ao sair da coluna e, a torre dá xeque ao rei.	You move one piece and open the line of another one behind it. That makes two threats in a single move: the piece that moved and the one it uncovered.\n\nIn the example, the bishop takes the queen on a8 and, by leaving the e-file, lets the rook give check.
+Mostrar as 3 melhores jogadas	Show the 3 best moves
+Muito longo	Very long
+Na linha principal ganha 1 ponto de material.	The main line wins 1 point of material.
+Na linha principal ganha {} pontos de material.	The main line wins {} points of material.
+Na área de transferência não há um print nem um PGN.	The clipboard has no screenshot and no PGN.
+No tabuleiro: um puzzle deste tema, com o lance certo a verde.	On the board: a puzzle on this theme, with the right move in green.
+Novo (B)	New (W)
+Novo (B) joga de brancas · Novo (P) joga de pretas	New (W) plays White · New (B) plays Black
+Novo (P)	New (B)
+Novo jogo	New game
+Não consegui abrir a imagem: {}	Couldn't open the image: {}
+Não consegui abrir o ficheiro: {}	Couldn't open the file: {}
+Não consegui ler a partida: {}	Couldn't read the game: {}
+Não encontrei nenhuma partida neste ficheiro.	I found no game in this file.
+Não encontrei nenhuma partida neste texto.	I found no game in this text.
+Não encontrei o tabuleiro. Usa um print do tabuleiro verde (chess.com) ou castanho (lichess).	I couldn't find the board. Use a screenshot of the green (chess.com) or brown (lichess) board.
+Não encontrei puzzles com esse tema.	I found no puzzles on that theme.
+Não é isso.	Not that one.
+O PGN tem {} partidas: escolhe uma.	The PGN has {} games: pick one.
+O adversário joga…	Your opponent moves…
+O chess.com pediu para esperar. Tenta daqui a um minuto.	chess.com asked us to wait. Try again in a minute.
+O chess.com respondeu com o erro {}.	chess.com answered with error {}.
+O motor "{}" não arranca.	The engine "{}" won't start.
+O rei está rodeado pelas próprias peças e não tem para onde ir. Basta um xeque de cavalo, que não se pode tapar.\n\nNo exemplo, Cf7#.	The king is boxed in by its own pieces and has nowhere to go. A knight check, which cannot be blocked, is enough.\n\nIn the example, Nf7#.
+O rei rocado fica atrás dos seus peões. Se nenhuma peça guardar a última fila, uma torre ou a dama dá mate lá atrás. Para te defenderes, abre uma "janela" (h3 ou g3) ou mantém uma torre na primeira fila.\n\nNo exemplo, Ta8#.	A castled king sits behind its pawns. If no piece guards the back rank, a rook or the queen can mate it there. To defend, open a "window" (h3 or g3) or keep a rook on the first rank.\n\nIn the example, Ra8#.
+O rei vai à frente do peão e abre-lhe caminho. Oposição: os reis frente a frente, com uma casa entre eles, e o adversário é que tem de jogar. Quem tem a oposição obriga o outro rei a ceder.\n\nCom o teu rei na sexta fila à frente do peão, a vitória é certa. Leva o peão até à promoção.	The king walks in front of the pawn and clears its way. Opposition: the kings face to face, one square apart, with the other side to move. Whoever has the opposition forces the other king to give way.\n\nWith your king on the sixth rank in front of the pawn, the win is certain. Take the pawn all the way to promotion.
+O teu progresso	Your progress
+Objetivo: dar xeque-mate.	Goal: checkmate.
+Objetivo: levar o peão até à promoção.	Goal: promote the pawn.
+PGN	PGN
+PGN copiado para a área de transferência.	PGN copied to the clipboard.
+Partida carregada: {} lances. A avaliar…	Game loaded: {} moves. Reviewing…
+Partida contra {}	Game against {}
+Partida pronta.	Game ready.
+Partida {} de {}	Game {} of {}
+Perfil e jogos do chess.com	chess.com profile and games
+Peão avançado	Advanced pawn
+Peça desprotegida	Hanging piece
+Peça presa	Trapped piece
+Peças desprotegidas	Hanging pieces
+Podes repetir qualquer lição ou continuar com os puzzles.	You can repeat any lesson or keep going with the puzzles.
+Por fazer	To do
+Posição atualizada.	Position updated.
+Posição carregada do FEN.	Position loaded from the FEN.
+Posição editada.	Position edited.
+Posição lida do print. Se houver peças mal lidas, corrige-as com o editor.	Position read from the screenshot. If any pieces were misread, fix them with the editor.
+Praticar	Practise
+Precisão no chess.com: brancas {}% · pretas {}%	Accuracy on chess.com: White {}% · Black {}%
+Pretas	Black
+Pretas ganham	Black wins
+Pretas · precisão	Black · accuracy
+Princípios da abertura	Opening principles
+Procura primeiro os xeques. Para cada xeque, vê se o rei tem para onde fugir, se alguém pode tapar a linha ou comer a peça que dá xeque. Se nada disso for possível, é mate.\n\nNo exemplo, Dg7# é mate: a dama está protegida pelo rei e tira todas as casas ao rei preto.	Look at the checks first. For each check, see whether the king can run, whether something can block the line or take the checking piece. If none of that is possible, it is mate.\n\nIn the example, Qg7# is mate: the queen is protected by the king and takes every square from the black king.
+Procurar	Search
+Promoção	Promotion
+Protege {} que estava ameaçada.	It protects {}, which was under attack.
+Protege {} que estava ameaçado.	It protects {}, which was under attack.
+Prática da lição · {}	Lesson practice · {}
+Próxima lição · {}	Next lesson · {}
+Próximo puzzle	Next puzzle
+Puzzle do dia	Daily puzzle
+Puzzle {} do Lichess · rating {}	Lichess puzzle {} · rating {}
+Puzzles do Lichess ao teu nível. Cada um tem um lance certo: encontra-o.	Lichess puzzles at your level. Each one has a right move: find it.
+Puzzles resolvidos	Puzzles solved
+Raio X	X-ray attack
+Rating de puzzles	Puzzle rating
+Rating {} · ainda por resolver hoje.	Rating {} · not solved yet today.
+Rating {} · hoje não saiu.	Rating {} · missed today.
+Rating {} · resolvido hoje.	Rating {} · solved today.
+Recomeçar	Restart
+Rei e dama contra rei	King and queen against king
+Rei e peão: a oposição	King and pawn: the opposition
+Rei e torre contra rei	King and rook against king
+Rei exposto	Exposed king
+Resolve puzzles para veres aqui a evolução do teu rating.	Solve puzzles to see your rating change here.
+Resolve {} puzzles deste tema, sem erros nem dicas.	Solve {} puzzles on this theme, with no mistakes or hints.
+Resolver agora	Solve now
+Resolvido hoje. Amanhã há outro.	Solved today. There's another one tomorrow.
+Resolvido!	Solved!
+Resolvido, com ajuda	Solved, with help
+Resolvido, com erros	Solved, with mistakes
+Resposta inválida: {}	Invalid response: {}
+Revê a solução em baixo e tenta outro.	Look over the solution below and try another.
+Revê as tuas partidas do chess.com ou de um PGN, lance a lance.	Go through your chess.com games or a PGN, move by move.
+Roque	Castling
+Sacrifício	Sacrifice
+Sem ajuda	No help
+Sem imprecisões nem erros. Boa partida!	No inaccuracies or mistakes. Good game!
+Sem ligação ao chess.com ({}).	No connection to chess.com ({}).
+Sem partidas de xadrez normal nesses meses.	No standard chess games in those months.
+Sem puzzle hoje.	No puzzle today.
+Sem sugestões para esta posição.	No suggestions for this position.
+Solução	Solution
+Sugestão: {}  ({})	Suggestion: {}  ({})
+Sugestões	Suggestions
+Sugestões desligadas	Suggestions off
+Só aparecem partidas públicas e terminadas.	Only public, finished games are shown.
+Só o nome de utilizador sai do teu computador, e só quando carregas em Procurar.	Only the username leaves your computer, and only when you press Search.
+Também {}.	It also {}.
+Tema	Theme
+Tenta outra vez.	Try again.
+Teoria	Book
+Todas as lições concluídas	All lessons completed
+Todos	All
+Treina xadrez e compreende cada lance.	Train chess and understand every move.
+Treinar um tema	Train a theme
+Tu	You
+Táticas	Tactics
+Um lance	One move
+Um peão que chega à última fila vira dama (ou outra peça). Às vezes vale tudo, até sacrificar uma peça, para o fazer passar. Conta os tempos: quem chega primeiro?	A pawn that reaches the last rank becomes a queen (or another piece). Sometimes anything goes, even giving up a piece, to get it through. Count the moves: who gets there first?
+Um puzzle novo por dia, ao teu nível, para treinares o cálculo tático.	A new puzzle every day, at your level, to train your tactical calculation.
+Uma peça ataca duas ao mesmo tempo. O adversário só consegue salvar uma, e tu ganhas a outra. O cavalo é o rei dos garfos, porque salta e ataca em todas as direções, mas qualquer peça pode dar um, até um peão.\n\nNo exemplo, Cc7+ dá xeque ao rei e ataca a torre: o rei tem de sair e a torre cai.	One piece attacks two at once. Your opponent can only save one, and you win the other. The knight is the king of forks because it jumps and attacks in every direction, but any piece can fork, even a pawn.\n\nIn the example, Nc7+ checks the king and attacks the rook: the king has to move and the rook falls.
+Uma peça do adversário tem uma tarefa: defender uma casa ou outra peça. Obriga-a a sair (com um xeque, uma captura ou uma oferta) e o que ela guardava fica desprotegido.	An enemy piece has a job: guarding a square or another piece. Force it away (with a check, a capture or an offer) and what it was guarding is left undefended.
+Uma peça fica presa porque, se sair, deixa exposta uma peça mais valiosa atrás dela. Se atrás está o rei, a peça cravada nem pode mexer-se (cravada absoluta).\n\nNo exemplo, o bispo crava o cavalo ao rei: o cavalo não sai de c6. A seguir, ataca a peça cravada com outra, porque ela não foge.	A piece is stuck because moving would expose a more valuable piece behind it. If the king is behind it, the pinned piece can't move at all (an absolute pin).\n\nIn the example, the bishop pins the knight to the king: the knight can't leave c6. Next, attack the pinned piece with another one, because it can't run away.
+Usa as setas ← → para percorrer a partida e vê a Análise.	Use the ← → arrows to step through the game and open the review.
+Utilizador não encontrado no chess.com.	User not found on chess.com.
+V	W
+Vantagem	Advantage
+Vantagem decisiva	Crushing
+Ver lições	See lessons
+Ver o exemplo	Show the example
+Ver outra vez	See it again
+Ver solução	Show solution
+Vez das brancas	White to move
+Vez das pretas	Black to move
+Vez de:	To move:
+Virar o tabuleiro (F)	Flip the board (F)
+Voltar	Back
+Voltar à lição	Back to the lesson
+Voltar à partida	Back to the game
+Xeque duplo	Double check
+Xeque-mate. Ganham as brancas.	Checkmate. White wins.
+Xeque-mate. Ganham as pretas.	Checkmate. Black wins.
+Xeque-mate. Ganhaste!	Checkmate. You won!
+Xeque-mate. Perdeste.	Checkmate. You lost.
+Zugzwang	Zugzwang
+abandono	abandonment
+afogamento	stalemate
+ameaça {}	threatens {}
+ataca {} ao mesmo tempo (um garfo)	attacks {} at the same time (a fork)
+captura {}	captures {}
+captura {} sem risco	captures {} safely
+coluna 1: brancas · coluna 2: pretas	column 1: White · column 2: Black
+depois do primeiro puzzle	after the first puzzle
+desenvolve {}	develops {}
+desistência	resignation
+dá xeque	gives check
+dá xeque-mate	gives checkmate
+empate por acordo	agreement
+há peões na primeira ou na última fila	there are pawns on the first or last rank
+imagem	image
+lance ilegal	illegal move
+lance ilegal ou ilegível no lance {} ({})	illegal or unreadable move at move {} ({})
+material insuficiente	insufficient material
+melhor série	best streak
+melhor: {}	best: {}
+o teu rating	your rating
+ocupa o centro	takes the centre
+ponto de partida	starting point
+por {}	by {}
+posição inicial inválida: {}	invalid starting position: {}
+promove-se a dama	promotes to a queen
+põe o rei em segurança e ativa a torre	puts the king in safety and brings the rook into play
+rating	rating
+regra dos 50 lances	the 50-move rule
+repetição	repetition
+resolvidos	solved
+seguidos	in a row
+tem de haver exatamente um rei de cada cor	there must be exactly one king of each colour
+tempo	timeout
+tira-se de um ataque	gets out of an attack
+um dos reis está em xeque de forma impossível	one of the kings is in an impossible check
+utilizador	username
+xeque-mate	checkmate
+{} (melhor era {})	{} (best was {})
+{} lances	{} moves
+{} lances · {}	{} moves · {}
+{} lições de táticas, mates, finais e aberturas, cada uma com prática.	{} lessons on tactics, mates, endgames and openings, each with practice.
+{} melhora a posição das peças.	{} improves the position of the pieces.
+{} nos últimos {} puzzles	{} over the last {} puzzles
+É claramente a melhor: a segunda opção perde {} peões de vantagem.	It is clearly the best: the second choice gives up {} pawns of advantage.
+É um sacrifício de material que compensa pela posição que fica.	It gives up material, and the position it leaves makes up for it.
+É uma cravada ao contrário: a peça mais valiosa está à frente. Quando ela foge do ataque, a peça de trás fica à mercê.\n\nNo exemplo, Tb1+ dá xeque ao rei. O rei tem de sair da coluna b e a torre come a dama em b8.	It is a pin the other way round: the more valuable piece is in front. When it runs from the attack, the piece behind is left hanging.\n\nIn the example, Rb1+ checks the king. The king has to leave the b-file and the rook takes the queen on b8.
+Ótima	Great
+✓ Avaliação concluída.	✓ Review complete.
+A análise aparece aqui no fim da partida, com a precisão e os lances a rever.	The review shows up here when the game ends, with the accuracy and the moves to look at.
+A análise aparece no fim da partida. Também a podes pedir já.	The review shows up when the game ends. You can also ask for it now.
+A força ajusta-se no próprio painel de sugestões.	The strength is set in the suggestions panel itself.
+A ver o lance {} de {}  (End = voltar ao fim)	Viewing move {} of {}  (End = back to the end)
+Abre uma partida terminada: o Gambito avalia cada lance e mostra onde a partida mudou.	Open a finished game: Gambito rates every move and shows where the game turned.
+Abrir partida	Open game
+Agora jogam as brancas.	White to move now.
+Agora jogam as pretas.	Black to move now.
+Análise	Review
+Carregar mais antigas	Load older games
+Cola o texto, arrasta um ficheiro .pgn para a janela, ou abre-o.	Paste the text, drag a .pgn file onto the window, or open it.
+Continuar	Continue
+Contra a engine, ao Elo que quiseres, com as melhores jogadas explicadas.	Against the engine, at any Elo you like, with the best moves explained.
+Copiar FEN	Copy FEN
+Copiar PGN	Copy PGN
+De 1000 a 2600.	From 1000 to 2600.
+Dica:	Tip:
+Editor	Editor
+Encontra o lance que ganha.	Find the winning move.
+Engine	Engine
+Engine das sugestões e da análise	Engine for suggestions and reviews
+Engines	Engines
+Escreve o teu nome de utilizador do chess.com para veres as tuas partidas.	Type your chess.com username to see your games.
+FEN copiado para a área de transferência.	FEN copied to the clipboard.
+Fim da partida (End)	End of the game (End)
+Força (Elo)	Strength (Elo)
+Geral	General
+Imagem ou PGN	Image or PGN
+Importar	Import
+Início da partida (Home)	Start of the game (Home)
+Jogar de brancas	Play as White
+Jogar de pretas	Play as Black
+Jogar os dois lados	Play both sides
+Jogar os dois lados, sem engine	Play both sides, no engine
+Lance anterior (←)	Previous move (←)
+Lance seguinte (→)	Next move (→)
+Lê a ideia, vê o exemplo no tabuleiro e pratica com puzzles ou contra a engine.	Read the idea, see the example on the board and practise with puzzles or against the engine.
+Mais puzzles	More puzzles
+Melhor era {}.	{} was better.
+Na primeira vez, segue a do Windows.	The first time, it follows Windows.
+Não dá para trocar a vez: o rei de quem acabou de jogar ficaria em xeque.	Can't switch the turn: the king of the side that just moved would be in check.
+Não instaladas: {}. Volta a correr o instalador para as juntar.	Not installed: {}. Run the installer again to add them.
+Os dois lados	Both sides
+PGN de qualquer site	PGN from any site
+PUZZLE DO DIA	DAILY PUZZLE
+PUZZLE DO DIA · RATING {}	DAILY PUZZLE · RATING {}
+PUZZLE DO DIA · RATING {} · RESOLVIDO	DAILY PUZZLE · RATING {} · SOLVED
+Partida anterior	Previous game
+Partida seguinte	Next game
+Partidas do chess.com	chess.com games
+Reproduzir	Play through
+Sem engine: tu moves as brancas e as pretas.	No engine: you move both White and Black.
+Também aceita vários jogos por ficheiro, comentários, variantes e posições iniciais (FEN).	Also takes several games per file, comments, variations and starting positions (FEN).
+Trocar de quem é a vez (brancas / pretas)	Switch whose turn it is (White / Black)
+Um puzzle novo por dia, escolhido para o teu nível.	A new puzzle every day, picked for your level.
+cola um print ou um PGN	pastes a screenshot or a PGN
+com as brancas	as White
+com as pretas	as Black
+lições	lessons
+puzzles resolvidos	puzzles solved
+rating de puzzles	puzzle rating
+{} de {} lições concluídas	{} of {} lessons completed
+{} de {} lições concluídas · próxima: {}	{} of {} lessons completed · next: {}
+{} lições curtas de táticas, mates, finais e aberturas.	{} short lessons on tactics, mates, endgames and openings.
+A cancelar…	Cancelling…
+A instalar o Gambito	Installing Gambito
+A verificar…	Checking…
+Abrir o Gambito	Open Gambito
+Alterar	Change
+Ao instalar, aceitas a licença GPL-3.0.	By installing, you accept the GPL-3.0 licence.
+Apagar também os meus dados	Also delete my data
+As engines vêm das páginas oficiais de cada uma e são verificadas antes de instaladas.	The engines come from their official pages and are checked before they are installed.
+Atalho no ambiente de trabalho	Desktop shortcut
+Cancelado.	Cancelled.
+Cancelar	Cancel
+Desinstalar	Uninstall
+Desinstalar o Gambito	Uninstall Gambito
+Escolhe uma pasta válida.	Choose a valid folder.
+Falhou	Failed
+Fecha o Gambito antes de desinstalar.	Close Gambito before uninstalling.
+Fechar	Close
+Fica só na tua conta, sem pedir permissões de administrador.	Just for your account, no administrator rights needed.
+Instalada	Installed
+Instalado em {}.	Installed in {}.
+Instalar	Install
+Instalar o Gambito	Install Gambito
+Joga, sugere e avalia: o Gambito precisa dela.	It plays, suggests and reviews: Gambito needs it.
+Licença	Licence
+Não consegui copiar o Gambito para esta pasta. Se estiver aberto, fecha-o e tenta de novo.	Could not copy Gambito to this folder. If it is open, close it and try again.
+Não consegui descarregar: {}. Volta a correr o instalador para as juntar.	Could not download: {}. Run the installer again to add them.
+O Gambito está pronto	Gambito is ready
+O Gambito foi removido	Gambito was removed
+O ficheiro descarregado não é o esperado (SHA-256 diferente).	The downloaded file is not the expected one (different SHA-256).
+Os atalhos não foram criados: {}	The shortcuts were not created: {}
+Pasta	Folder
+Podes fechar esta janela.	You can close this window.
+Progresso, puzzles, lições, peças aprendidas e definições.	Progress, puzzles, lessons, learned pieces and settings.
+Puzzles, lições, jogos contra engines e a avaliação das tuas partidas, com cada lance explicado.	Puzzles, lessons, games against engines and reviews of your games, with every move explained.
+Remove a aplicação, as engines e os atalhos de {}.	Removes the app, the engines and the shortcuts from {}.
+Sem o Stockfish o Gambito não joga nem sugere lances. Vê a ligação à internet.	Without Stockfish, Gambito can't play or suggest moves. Check the internet connection.
+Tentar de novo	Try again
+Treina, joga e analisa xadrez.	Train, play and analyse chess.
+Ver licença	View licence
+Versão {}	Version {}
+instalada	installed
+obrigatória	required
+{} MB a descarregar	{} MB to download
+{} de {} MB	{} of {} MB
+À espera	Waiting
+A descarga falhou. Vê a ligação à internet.	The download failed. Check the internet connection.
+A instalar agora	Installing now
+A instalar o Gambito e as engines…	Installing Gambito and the engines…
+A instalar…	Installing…
+A terminar…	Finishing…
+A transferir…  {}%	Downloading…  {}%
+A transferir… ({} MB de {} MB)	Downloading… ({} MB of {} MB)
+Adversário extra, de {} · {}	Extra opponent, by {} · {}
+Criar atalho no ambiente de trabalho	Create a desktop shortcut
+Em espera	Waiting
+Escolhe o idioma do instalador e do Gambito.	Choose the language of the installer and of Gambito.
+Escolhe onde instalar o Gambito e as opções de atalho.	Choose where to install Gambito and the shortcut options.
+Escolher engines de xadrez	Choose chess engines
+Gambito (Aplicação)	Gambito (App)
+Gambito — Instalador	Gambito — Installer
+Idioma	Language
+Iniciar o Gambito	Start Gambito
+Instalado	Installed
+Instalação concluída	Installation complete
+O Gambito foi instalado com sucesso no teu computador.	Gambito was installed successfully on your computer.
+Obrigatória: joga, sugere lances e avalia.	Required: plays, suggests moves and reviews games.
+Pasta de instalação	Install folder
+Progresso geral	Overall progress
+Seleciona as engines que queres descarregar e instalar.	Select the engines you want to download and install.
+Seleciona o idioma	Select your language
+{} de {} escolhidas · {} MB. Podes juntar outras mais tarde.	{} of {} selected · {} MB. You can add others later.
+Procurar…	Browse…
+A partida terminou.	The game is over.
+Já não há peças para dar xeque-mate.	There are not enough pieces left to checkmate.
+Partida de {} lances.	A {}-move game.
+Partida importada.	Game imported.
+Rei afogado: quem joga não tem lances e não está em xeque.	Stalemate: the side to move has no moves and is not in check.
+Venceste o {} com Elo {}.	You beat {} at Elo {}.
+Ver a análise	See the review
+Vê na análise onde a partida mudou.	See in the review where the game turned.
+Posição {} de {}	Position {} of {}
+A atualização falhou: {}	The update failed: {}
+A descarregar… {}%	Downloading… {}%
+A procurar…	Checking…
+A reiniciar…	Restarting…
+Atualizar para {}	Update to {}
+Atualizações	Updates
+Descarrega a versão nova, fecha o Gambito e volta a abri-lo já atualizado.	Downloads the new version, closes Gambito and opens it again, updated.
+Há uma versão nova do Gambito: {}. Carrega em "Atualizar" no menu.	A new version of Gambito is out: {}. Press "Update" in the menu.
+Há uma versão nova: usa o botão Atualizar no menu.	A new version is out: use the Update button in the menu.
+Não consegui ver se há versão nova.	Could not check for a new version.
+Procurar agora	Check now
+Procurar atualizações automaticamente	Check for updates automatically
+Tens a versão mais recente.	You have the latest version.
+Uma vez por dia, no GitHub. Só é enviado o pedido da versão mais recente.	Once a day, on GitHub. Only the request for the latest version is sent.
+Jogos	Games
+Jogos curtos para treinar a visão do tabuleiro, a memória e o cálculo.	Short games to train board vision, memory and calculation.
+Memória de peões	Pawn Recall
+Memoriza onde estão os peões e toca em todas as casas onde estavam.	Memorise where the pawns stand, then tap every square they were on.
+Rota do cavalo	Knight Route
+Vê o cavalo saltar e repete o mesmo caminho, pela mesma ordem.	Watch the knight jump, then repeat the same path in the same order.
+Às cegas	Blindfold
+As peças desaparecem: segue os lances de cabeça e responde à pergunta.	The pieces disappear: follow the moves in your head and answer the question.
+Quem dá xeque?	Who Gives Check?
+Toca na peça que dá xeque, o mais depressa possível. Cinco rondas; um erro conta 5 segundos.	Tap the piece giving check as fast as you can. Five rounds; a mistake counts as 5 seconds.
+Mates contra o relógio	Mate Sprint
+Faz o máximo de xeque-mates em dois minutos, do mate em 1 ao mate em 3. Três erros e acaba.	Deliver as many checkmates as you can in two minutes, from mate in 1 to mate in 3. Three mistakes and it is over.
+O que mudou?	What Changed?
+Estuda o tabuleiro, carrega em Pronto e toca em todas as casas que mudaram.	Study the board, press Ready, then tap every square that changed.
+Legal ou ilegal?	Legal or Illegal?
+Diz se o lance da seta é legal ou ilegal, antes que o tempo acabe.	Say whether the arrow's move is legal or illegal before time runs out.
+Peça pendurada	Hanging Piece
+O multiplicador sobe até alguém deixar uma peça pendurada. Recolhe o ouro antes que ela caia, ou voltas aos 100.	The multiplier climbs until someone leaves a piece hanging. Cash out your gold before it falls, or you go back to 100.
+Casas seguras	Safe Squares
+Toca só nas casas que nenhuma peça preta ataca. Dois minutos, tabuleiro atrás de tabuleiro; três erros e acaba.	Tap only the squares no black piece attacks. Two minutes, board after board; three mistakes and it is over.
+Damas por cores	Colour Queens
+Uma dama em cada cor, sem nenhuma atacar outra (linha, coluna ou diagonal). Resolve o máximo de grelhas em três minutos.	One queen in each colour, none attacking another (row, column or diagonal). Solve as many grids as you can in three minutes.
+Pares	Pairs
+Vira duas cartas de cada vez e encontra todos os pares antes de acabarem os lances.	Turn over two cards at a time and find every pair before your moves run out.
+Ainda sem recorde	No record yet
+Análise pronta: precisão {}% das brancas e {}% das pretas.	Review ready: White's accuracy {}%, Black's {}%.
+Anónimo	Anonymous
+As tuas partidas online	Your online games
+Brancas jogam e dão mate	White to play and mate
+Caiu! A peça pendurada foi capturada.	Crash! The hanging piece was taken.
+Casa vazia	Empty square
+Certo!	Correct!
+Encontra os {} peões	Find the {} pawns
+Era ilegal	It was illegal
+Era legal	It was legal
+Escreve o teu nome de utilizador do Lichess para veres as tuas partidas.	Type your Lichess username to see your games.
+Estuda a posição	Study the position
+Estuda o tabuleiro	Study the board
+Faltam {} casas seguras neste tabuleiro.	{} safe squares left on this board.
+Fim do jogo	Game over
+Ilegal  (F)	Illegal  (F)
+Jogam as brancas	White to move
+Jogam as pretas	Black to move
+Lances restantes: {}	Moves left: {}
+Legal  (J)	Legal  (J)
+Lição concluída: {}	Lesson complete: {}
+Memoriza!	Memorise!
+Nova melhor sequência: {} puzzles certos seguidos!	New best streak: {} puzzles right in a row!
+Novo recorde em {}: {}	New record in {}: {}
+Novo recorde!	New record!
+Não era isso	Not that
+Não é mate	Not mate
+O Lichess pediu para esperar. Tenta daqui a um minuto.	Lichess asked us to wait. Try again in a minute.
+O Lichess respondeu com o erro {}.	Lichess answered with error {}.
+O que está agora em {}?	What is on {} now?
+Observa o caminho	Watch the path
+Onde está agora {} que começou em {}? Toca na casa.	Where is {} that started on {} now? Tap the square.
+o peão branco	the white pawn
+o cavalo branco	the white knight
+o bispo branco	the white bishop
+a torre branca	the white rook
+a dama branca	the white queen
+o rei branco	the white king
+o peão preto	the black pawn
+o cavalo preto	the black knight
+o bispo preto	the black bishop
+a torre preta	the black rook
+a dama preta	the black queen
+o rei preto	the black king
+Outra vez	Again
+Pista (−10 s)	Hint (−10 s)
+Prepara-te…	Get ready…
+Pretas jogam e dão mate	Black to play and mate
+Pronto	Ready
+Puzzle do dia resolvido. Volta amanhã para o próximo!	Puzzle of the day solved. Come back tomorrow for the next one!
+Recolher  (Espaço)	Cash out  (Space)
+Recolhido a {}x	Cashed out at {}x
+Recorde: {}	Record: {}
+Responde no painel	Answer in the panel
+Ronda {} de 10	Round {} of 10
+Ronda {} de 5	Round {} of 5
+Ronda {}: {} s	Round {}: {} s
+Sair	Leave
+Salto {} de {}	Jump {} of {}
+Sem ligação ao Lichess ({}).	No connection to Lichess ({}).
+Stockfish nível {}	Stockfish level {}
+Utilizador não encontrado no Lichess.	User not found on Lichess.
+Voltar aos jogos	Back to the games
+Xeque-mate!	Checkmate!
+caiu {}x	crashed {}x
+casas seguras	safe squares
+certos	correct
+grelhas	grids
+mates	mates
+nível	level
+nível {}	level {}
+ouro	gold
+ronda	round
+{} casas mudaram	{} squares changed
+{} partidas carregadas do {}.	{} games loaded from {}.
+{} puzzles certos seguidos!	{} puzzles right in a row!
+Encontra o peão	Find the pawn
+1 casa mudou	1 square changed
+A partida virou no lance {}: {}{}.	The game turned on move {}: {}{}.
+As brancas	White
+As pretas	Black
+As partidas que acabares contra a engine ficam aqui, para as reveres.	Games you finish against the engine are kept here, to review them.
+Cores do tabuleiro	Board colours
+Desistir	Resign
+Desististe	You resigned
+Elo estimado nesta partida	Estimated Elo in this game
+Lances, capturas, xeques, fim da partida e respostas certas ou erradas.	Moves, captures, checks, game end, and right or wrong answers.
+Ouvir	Listen
+Partida equilibrada: as duas cores jogaram com precisão parecida.	A balanced game: both sides played with similar accuracy.
+Partidas jogadas no Gambito	Games played in Gambito
+Precisão no site: brancas {}% · pretas {}%	Accuracy on the site: White {}% · Black {}%
+Revê as tuas partidas do chess.com, do Lichess ou de um PGN, lance a lance.	Go through your chess.com or Lichess games, or a PGN, move by move.
+Sons	Sounds
+Subpromoção	Underpromotion
+Tabuleiro e som	Board and sound
+{} jogaram com mais precisão ({}% contra {}%).	{} played more accurately ({}% against {}%).
+{} jogos curtos de visão, memória e cálculo.	{} short games for vision, memory and calculation.
+Verde	Green
+Castanho	Brown
+Azul	Blue
+Dourado	Gold
+Cinzento	Grey
+Sobre o Gambito	About Gambito
+Gratuito, sem anúncios, sem conta e de código aberto (GPL-3.0).	Free, no ads, no account, and open source (GPL-3.0).
+Copiar versão	Copy version
+Versão copiada.	Version copied.
+Animações	Animations
+Movimento suave nos ecrãs, botões e peças. Desliga para reduzir o movimento.	Smooth motion on screens, buttons and pieces. Turn it off to reduce motion.

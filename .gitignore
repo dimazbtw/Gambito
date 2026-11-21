@@ -1,6 +1,6 @@
 /target
 /dist
 # engines are downloaded by scripts/fetch-engines.ps1, not stored in git
-/assets/stockfish.gz
-/assets/engines/*.gz
+/assets/engines/*.exe
+/assets/art/_*
 *.part

@@ -2,8 +2,12 @@
 //! Method: find the board by its dark-square colour, cut 64 cells, take each cell's piece
 //! silhouette (pixels that differ from the cell's dominant background colour) and match it
 //! against known piece shapes: the bundled ones plus shapes the app learned from screenshots the
-//! user corrected. White/black comes from how bright the piece pixels are. Finally the rules of
-//! chess fix obvious mistakes (exactly one king per side, no pawns on the first/last rank).
+//! user corrected. White/black comes from how bright the piece pixels are. Move dots and capture rings
+//! (the square's colour, evenly darkened) are ignored, and a blob only counts as a piece if it stands
+//! like one (centred, tall enough), which drops a mouse cursor on an empty square. Finally the rules of
+//! chess fix obvious mistakes (one king per side, no pawns on the first/last rank) and, if the position
+//! is still illegal, the cheapest corrections are tried until it is legal.
+use crate::i18n::tl;
 use image::RgbImage;
 use shakmaty::{Color, Role};
 use std::collections::HashMap;
@@ -180,7 +184,7 @@ fn find_board(img: &RgbImage) -> Result<(u32, u32, u32, u32), String> {
     }
     let (w, h) = img.dimensions();
     if (w as f32 - h as f32).abs() / w.max(h) as f32 > 0.08 {
-        return Err("Não encontrei o tabuleiro. Usa um print do tabuleiro verde (chess.com) ou castanho (lichess).".into());
+        return Err(tl("Não encontrei o tabuleiro. Usa um print do tabuleiro verde (chess.com) ou castanho (lichess).").into());
     }
     Ok((0, 0, w, h)) // already cropped to the board
 }
@@ -192,41 +196,58 @@ struct Cell {
     white: bool,
 }
 
+/// A pixel that is just the square's colour darkened evenly: chess.com's move dots, capture rings and
+/// shadows, never a piece (pieces are grey/white/black, so their channels don't scale together).
+fn is_shade(p: [u8; 3], bg: [i32; 3]) -> bool {
+    if bg.iter().any(|&b| b < 40) { return false; }
+    let r: Vec<f32> = (0..3).map(|c| p[c] as f32 / bg[c] as f32).collect();
+    let (lo, hi) = (r.iter().cloned().fold(f32::MAX, f32::min), r.iter().cloned().fold(f32::MIN, f32::max));
+    lo >= 0.55 && hi <= 0.98 && hi - lo <= 0.06
+}
+
 fn read_cell(img: &RgbImage, cx: u32, cy: u32, cw: u32, ch: u32) -> Option<Cell> {
     let (ix, iy) = (cw * 4 / 100, ch * 4 / 100);
     let (x0, y0, w, h) = (cx + ix, cy + iy, (cw - 2 * ix) as usize, (ch - 2 * iy) as usize);
     let px = |x: usize, y: usize| img.get_pixel(x0 + x as u32, y0 + y as u32).0;
-    // background = most common colour in the cell
-    let mut hist: HashMap<[u8; 3], u32> = HashMap::new();
+    // background = most common colour in the cell that also shows along its edge (a big piece with a
+    // capture ring around it can outnumber the square's own colour, but it doesn't touch the edge)
+    let mut hist: HashMap<[u8; 3], (u32, u32)> = HashMap::new();
+    let band = (w.min(h) / 40).max(2);
     for y in 0..h {
         for x in 0..w {
             let p = px(x, y);
-            *hist.entry([p[0] >> 3, p[1] >> 3, p[2] >> 3]).or_default() += 1;
+            let e = hist.entry([p[0] >> 3, p[1] >> 3, p[2] >> 3]).or_default();
+            e.0 += 1;
+            e.1 += (x < band || y < band || x >= w - band || y >= h - band) as u32;
         }
     }
-    let bq = hist.into_iter().max_by_key(|(_, n)| *n)?.0;
+    let edge = (2 * band * (w + h)) as u32;
+    let bq = hist.iter().filter(|(_, n)| n.1 * 20 >= edge).max_by_key(|(_, n)| n.0)
+        .or_else(|| hist.iter().max_by_key(|(_, n)| n.0))?.0.to_owned();
     let bg = [(bq[0] as i32) * 8 + 4, (bq[1] as i32) * 8 + 4, (bq[2] as i32) * 8 + 4];
     let mut mask = vec![false; w * h];
     for y in 0..h {
         for x in 0..w {
             let p = px(x, y);
             let d: i32 = (0..3).map(|c| (p[c] as i32 - bg[c]).abs()).sum();
-            mask[y * w + x] = d > 60;
+            mask[y * w + x] = d > 60 && !is_shade(p, bg);
         }
     }
-    // keep the biggest blob (+ comparable ones): drops the coordinate letters in the corners
+    // blobs (4-connected) with their bounding boxes
     let mut label = vec![0u32; w * h];
     let mut sizes = vec![0usize];
+    let mut boxes = vec![(0, 0, 0, 0)];
     for s in 0..w * h {
         if !mask[s] || label[s] != 0 {
             continue;
         }
         let id = sizes.len() as u32;
-        let (mut stack, mut cnt) = (vec![s], 0);
+        let (mut stack, mut cnt, mut bb) = (vec![s], 0, (w, h, 0, 0));
         label[s] = id;
         while let Some(i) = stack.pop() {
             cnt += 1;
             let (x, y) = (i % w, i / w);
+            bb = (bb.0.min(x), bb.1.min(y), bb.2.max(x), bb.3.max(y));
             let mut nb = vec![];
             if x > 0 { nb.push(i - 1) }
             if x + 1 < w { nb.push(i + 1) }
@@ -239,13 +260,30 @@ fn read_cell(img: &RgbImage, cx: u32, cy: u32, cw: u32, ch: u32) -> Option<Cell>
                 }
             }
         }
+        // a thin frame along the edges (chess.com's hover border while dragging) is not a piece
+        let edges = (bb.0 == 0) as u8 + (bb.1 == 0) as u8 + (bb.2 == w - 1) as u8 + (bb.3 == h - 1) as u8;
+        let fill = cnt as f32 / ((bb.2 - bb.0 + 1) * (bb.3 - bb.1 + 1)) as f32;
+        if edges >= 3 && fill < 0.3 { cnt = 0; }
         sizes.push(cnt);
+        boxes.push(bb);
     }
     let biggest = *sizes.iter().max().unwrap();
     if (biggest as f32) < 0.05 * (w * h) as f32 {
         return None; // empty square
     }
-    let keep: Vec<bool> = label.iter().map(|&l| l != 0 && sizes[l as usize] * 100 >= biggest * 15).collect();
+    // keep the biggest blob (+ comparable ones): drops the coordinate letters in the corners
+    let keep: Vec<bool> = label.iter().map(|&l| l != 0 && sizes[l as usize] > 0 && sizes[l as usize] * 100 >= biggest * 15).collect();
+    // a piece stands in the middle of its square, from its upper half down to near the bottom;
+    // a mouse cursor or a stray mark on an empty square doesn't
+    let (mut bx0, mut by0, mut bx1, mut by1) = (w, h, 0, 0);
+    for (l, b) in sizes.iter().zip(&boxes).skip(1) {
+        if *l > 0 && l * 100 >= biggest * 15 { bx0 = bx0.min(b.0); by0 = by0.min(b.1); bx1 = bx1.max(b.2); by1 = by1.max(b.3); }
+    }
+    let (fw, fh) = (w as f32, h as f32);
+    let centre = (bx0 + bx1) as f32 / 2.0 / fw;
+    if (by1 - by0) as f32 / fh < 0.4 || by0 as f32 > 0.45 * fh || (by1 as f32) < 0.7 * fh || (centre - 0.5).abs() > 0.2 {
+        return None;
+    }
     let (mut bright, mut tot) = (0, 0);
     for i in 0..w * h {
         if keep[i] {
@@ -284,7 +322,50 @@ pub fn read_board(img: &RgbImage, tpl: &Templates) -> Result<Scan, String> {
         }
     }
     enforce_rules(&mut grid, &sc);
+    repair(&mut grid, &sc);
     Ok(Scan { grid, sils })
+}
+
+/// Legal with either side to move (the caller picks the side later).
+fn legal(g: &Grid, wt: bool) -> bool {
+    use shakmaty::{fen::Fen, CastlingMode, Chess};
+    [true, false].iter().any(|&w| grid_to_fen(g, wt, w).parse::<Fen>().ok().and_then(|f| f.into_position::<Chess>(CastlingMode::Standard).ok()).is_some())
+}
+
+/// Still illegal after the basic rules (an extra pawn, a 17th piece, an impossible check...)? Try the
+/// cheapest corrections: a cell read as another role it also resembled (cost = how much worse that
+/// match is), or a cell dropped (cost = how piece-like it looked). One correction, then two.
+fn repair(grid: &mut Grid, sc: &[[[f32; 6]; 8]; 8]) {
+    let wt = white_on_top(grid);
+    if legal(grid, wt) { return; }
+    let mut edits: Vec<(f32, usize, usize, Option<(Color, Role)>)> = vec![];
+    for r in 0..8 {
+        for c in 0..8 {
+            let Some((col, role)) = grid[r][c] else { continue };
+            if role == Role::King { continue; }
+            let cur = sc[r][c][ROLES.iter().position(|x| *x == role).unwrap()];
+            edits.push((cur.max(0.0) + 0.05, r, c, None));
+            for (i, alt) in ROLES.iter().enumerate() {
+                if *alt != role && *alt != Role::King { edits.push(((cur - sc[r][c][i]).max(0.0), r, c, Some((col, *alt)))); }
+            }
+        }
+    }
+    edits.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let try_with = |es: &[&(f32, usize, usize, Option<(Color, Role)>)]| {
+        let mut g = *grid;
+        for e in es { g[e.1][e.2] = e.3; }
+        legal(&g, wt).then_some(g)
+    };
+    if let Some(g) = edits.iter().find_map(|e| try_with(&[e])) { *grid = g; return; }
+    let top = &edits[..edits.len().min(16)];
+    let mut pairs: Vec<(f32, usize, usize)> = vec![];
+    for i in 0..top.len() {
+        for j in i + 1..top.len() {
+            if (top[i].1, top[i].2) != (top[j].1, top[j].2) { pairs.push((top[i].0 + top[j].0, i, j)); }
+        }
+    }
+    pairs.sort_by(|a, b| a.0.total_cmp(&b.0));
+    if let Some(g) = pairs.iter().find_map(|&(_, i, j)| try_with(&[&top[i], &top[j]])) { *grid = g; }
 }
 
 /// Chess rules as a sanity net over the raw shape matches: exactly one king per side,
@@ -479,5 +560,83 @@ fen={fen}");
             assert_eq!(wt, flip);
             assert_eq!(grid_to_fen(&g, wt, true), START, "flip={flip}");
         }
+    }
+
+    /// Windows cursors as text: B = black outline, W = white fill.
+    const ARROW: &str = "B...........|BB..........|BWB.........|BWWB........|BWWWB.......|BWWWWB......|BWWWWWB.....|BWWWWWWB....|BWWWWWWWB...|BWWWWWWWWB..|BWWWWWWWWWB.|BWWWWWWBBBBB|BWWWBWWB....|BWWBBWWB....|BWB..BWWB...|BB...BWWB...|B.....BWWB..|......BWWB..|.......BB...";
+    const HAND: &str = ".....BB.........|....BWWB........|....BWWB........|....BWWB........|....BWWB........|....BWWBBB......|....BWWBWWBBB...|....BWWBWWBWWBB.|BBB.BWWBWWBWWBWB|BWWBBWWWWWWWWBWB|BWWWBWWWWWWWWWWB|.BWWBWWWWWWWWWWB|..BWWWWWWWWWWWWB|..BWWWWWWWWWWWB.|...BWWWWWWWWWWB.|...BWWWWWWWWWB..|....BWWWWWWWWB..|....BWWWWWWWWB..|....BBBBBBBBBB..";
+
+    fn stamp(img: &mut RgbImage, shape: &str, x0: u32, y0: u32, s: u32) {
+        for (y, row) in shape.split('|').enumerate() {
+            for (x, ch) in row.chars().enumerate() {
+                let col = match ch { 'B' => [0, 0, 0], 'W' => [255, 255, 255], _ => continue };
+                for dy in 0..s { for dx in 0..s { img.put_pixel(x0 + x as u32 * s + dx, y0 + y as u32 * s + dy, image::Rgb(col)); } }
+            }
+        }
+    }
+
+    /// Darkens (or tints) pixels by `a` towards `col`, like a translucent overlay.
+    fn blend(img: &mut RgbImage, x: u32, y: u32, col: [f32; 3], a: f32) {
+        let p = img.get_pixel_mut(x, y);
+        for c in 0..3 { p.0[c] = (p.0[c] as f32 * (1.0 - a) + col[c] * a).round() as u8; }
+    }
+
+    // The real screenshot again, with what chess.com and Windows put on top of a board: move dots on the
+    // empty squares, capture rings, last-move highlights, the hand cursor over a piece and the arrow on
+    // an empty square (both at 1x and 2x size). It must still read the same position.
+    #[test]
+    fn screenshot_with_cursor_and_hints() {
+        let base = image::open("tests_data/chesscom_neo_flipped.png").unwrap().to_rgb8();
+        let (bx, by, bw, bh) = find_board(&base).unwrap();
+        let (cw, ch) = (bw / 8, bh / 8);
+        let truth: Vec<Vec<char>> = "4r1k1/1Q3p1p/4q3/p7/5b2/2N4P/PP3PP1/3R2K1".split('/').map(|r| r.chars().flat_map(|c| if c.is_ascii_digit() { vec!['.'; c.to_digit(10).unwrap() as usize] } else { vec![c] }).collect()).collect();
+        let empty = |r: u32, c: u32| truth[7 - r as usize][7 - c as usize] == '.'; // white is on top in this picture
+        let tpl = bundled_templates();
+        for s in [1u32, 2] {
+            let mut img = base.clone();
+            for r in 0..8u32 {
+                for c in 0..8u32 {
+                    let (ox, oy) = (bx + c * cw, by + r * ch);
+                    let (mx, my) = (ox as f32 + cw as f32 / 2.0, oy as f32 + ch as f32 / 2.0);
+                    let sq = base.get_pixel(ox + cw / 2, oy + 3).0; // the square's own colour
+                    for y in oy..oy + ch {
+                        for x in ox..ox + cw {
+                            // hints and highlights sit under the pieces: only the square's background changes
+                            if (0..3).map(|k| (base.get_pixel(x, y).0[k] as i32 - sq[k] as i32).abs()).sum::<i32>() > 24 { continue; }
+                            let d = ((x as f32 - mx).powi(2) + (y as f32 - my).powi(2)).sqrt() / cw as f32;
+                            if empty(r, c) && (2..6).contains(&r) && d < 0.16 { blend(&mut img, x, y, [0.0; 3], 0.14); } // move dot
+                            if !empty(r, c) && r == 6 && (0.41..0.5).contains(&d) { blend(&mut img, x, y, [0.0; 3], 0.14); } // capture ring
+                            if (r, c) == (3, 3) || (r, c) == (0, 4) { blend(&mut img, x, y, [255.0, 255.0, 51.0], 0.5); } // last move
+                        }
+                    }
+                }
+            }
+            stamp(&mut img, HAND, bx + cw + cw / 2 - 8 * s, by + ch / 2 - 4 * s, s); // over the white king (g1)
+            stamp(&mut img, ARROW, bx + 3 * cw + cw / 3, by + 3 * ch + ch / 3, s); // empty e4
+            stamp(&mut img, HAND, bx + 3 * cw + cw * 3 / 4, by + 5 * ch + ch / 3, s); // half over the black queen (e6), half outside
+            let g = read_board(&img, &tpl).unwrap().grid;
+            let fen = grid_to_fen(&g, white_on_top(&g), false);
+            assert!(fen.starts_with("4r1k1/1Q3p1p/4q3/p7/5b2/2N4P/PP3PP1/3R2K1 "), "scale {s}: {fen}");
+        }
+    }
+
+    // A cursor that turns one empty square into a "pawn" (a 9th pawn) must not make the position illegal.
+    #[test]
+    fn repair_drops_the_extra_piece() {
+        let fen: shakmaty::fen::Fen = START.parse().unwrap();
+        let setup = fen.as_setup().clone();
+        let mut g: Grid = Default::default();
+        let mut sc = [[[0f32; 6]; 8]; 8];
+        for r in 0..8 { for c in 0..8 {
+            let sq = shakmaty::Square::from_coords(shakmaty::File::new(c as u32), shakmaty::Rank::new(7 - r as u32));
+            if let Some(p) = setup.board.piece_at(sq) {
+                g[r][c] = Some((p.color, p.role));
+                sc[r][c][ROLES.iter().position(|x| *x == p.role).unwrap()] = 0.9;
+            }
+        } }
+        g[4][4] = Some((Color::White, Pawn)); // the cursor, read as a weak pawn
+        sc[4][4] = [0.35, 0.3, 0.3, 0.2, 0.2, 0.1];
+        repair(&mut g, &sc);
+        assert_eq!(grid_to_fen(&g, false, true), START);
     }
 }

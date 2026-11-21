@@ -5,16 +5,21 @@ edition = "2024"
 description = "Tabuleiro de xadrez para treinar e analisar, com várias engines, sugestões explicadas e avaliação de partidas"
 license = "GPL-3.0-or-later"
 readme = "README.md"
+# the GitHub repo the app checks for updates (src/update.rs); empty = no update checks
+repository = "https://github.com/dimazbtw/Gambito"
 
 [dependencies]
 arboard = "3.7.0"
-eframe = "0.37.0"
+# glow (OpenGL) instead of the default wgpu: a fraction of the memory for a 2D app; no system fonts (ours are bundled)
+eframe = { version = "0.37.0", default-features = false, features = ["glow", "accesskit", "clipboard", "default_fonts"] }
 flate2 = "1.1.11"
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
 resvg = "0.50.0"
 rfd = "0.18.0"
 serde_json = "1.0.154"
+sha2 = "0.11.1"
 shakmaty = "0.30.2"
+sys-locale = "0.3.2"
 ureq = "3.5.2"
 
 [profile.release]
@@ -26,3 +31,6 @@ strip = true
 
 [build-dependencies]
 winresource = "0.1.34"
+
+[dev-dependencies]
+ruzstd = "0.9.1"

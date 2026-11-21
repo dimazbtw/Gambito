@@ -1,5 +1,6 @@
 //! Small PGN reader: headers + main-line moves. Comments `{...}` and `;...`, variations `(...)`, NAGs `$n`,
 //! move numbers and `!?` marks are dropped, so chess.com / lichess exports (with clock comments) read fine.
+use crate::i18n::tl;
 use shakmaty::{fen::Fen, san::San, CastlingMode, Chess, Move, Position};
 
 #[derive(Clone, Default)]
@@ -16,15 +17,15 @@ impl Game {
     /// Plays the moves from the start position (the `FEN` header, if any). Returns the start position and the moves.
     pub fn replay(&self) -> Result<(Chess, Vec<Move>), String> {
         let start: Chess = match self.header("FEN") {
-            Some(f) => f.parse::<Fen>().map_err(|e| format!("FEN inválido: {e}"))?
-                .into_position(CastlingMode::Standard).map_err(|e| format!("posição inicial inválida: {e}"))?,
+            Some(f) => f.parse::<Fen>().map_err(|e| tr!("FEN inválido: {}", e))?
+                .into_position(CastlingMode::Standard).map_err(|e| tr!("posição inicial inválida: {}", e))?,
             None => Chess::default(),
         };
         let (mut pos, mut out) = (start.clone(), vec![]);
         for (i, t) in self.moves.iter().enumerate() {
             let m = San::from_ascii(t.as_bytes()).ok().and_then(|s| s.to_move(&pos).ok())
-                .ok_or_else(|| format!("lance ilegal ou ilegível no lance {} ({t})", i / 2 + 1))?;
-            pos = pos.play(m.clone()).map_err(|_| "lance ilegal".to_string())?;
+                .ok_or_else(|| tr!("lance ilegal ou ilegível no lance {} ({})", i / 2 + 1, t))?;
+            pos = pos.play(m.clone()).map_err(|_| tl("lance ilegal").to_string())?;
             out.push(m);
         }
         Ok((start, out))
